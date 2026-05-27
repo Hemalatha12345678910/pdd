@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ProphyDent</string>
+    <string name="title_activity_main">ProphyDent</string>
+    <string name="package_name">com.prophydent.app</string>
+    <string name="custom_url_scheme">com.prophydent.app</string>
+</resources>

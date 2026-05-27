@@ -1,0 +1,10 @@
+{
+  "appId": "com.prophydent.app",
+  "appName": "ProphyDent",
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
