@@ -37,6 +37,7 @@ export default function Patients() {
 function ViewPatients() {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchPatients();
@@ -60,11 +61,21 @@ function ViewPatients() {
     setLoading(false);
   };
 
+  const filteredPatients = patients.filter(patient => 
+    patient.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="card view-patients-card">
       <div className="search-bar">
         <Search size={20} className="search-icon" />
-        <input type="text" placeholder="Search patients by name or email..." />
+        <input 
+          type="text" 
+          placeholder="Search patients by name or email..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
       
       <div className="table-responsive">
@@ -88,7 +99,7 @@ function ViewPatients() {
               </tr>
             </thead>
             <tbody>
-              {patients.map(patient => (
+              {filteredPatients.map(patient => (
                 <tr key={patient.id}>
                   <td className="font-medium">{patient.full_name}</td>
                   <td>{patient.dob}</td>
