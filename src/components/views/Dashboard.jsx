@@ -3,7 +3,7 @@ import { Users, FileImage, ShieldAlert, Activity, ArrowRight, Heart } from 'luci
 import { supabase } from '../../lib/supabase';
 import './Dashboard.css';
 
-export default function Dashboard({ onNavigate, globalSearch = '' }) {
+export default function Dashboard({ onNavigate }) {
   const [profile, setProfile] = useState({ name: '', role: 'doctor' });
   const [loading, setLoading] = useState(true);
   const [recentScans, setRecentScans] = useState([]);
@@ -76,7 +76,6 @@ export default function Dashboard({ onNavigate, globalSearch = '' }) {
   const doctorStats = [
     { label: 'Total Patients', value: dashboardStats.totalPatients, icon: Users, color: 'var(--color-primary)' },
     { label: 'Total Scans', value: dashboardStats.totalScans, icon: FileImage, color: 'var(--color-warning)' },
-    { label: 'Critical Cases', value: '0', icon: ShieldAlert, color: 'var(--color-danger)' },
     { label: 'AI Accuracy', value: '98.5%', icon: Activity, color: 'var(--color-success)' }
   ];
 
@@ -88,13 +87,6 @@ export default function Dashboard({ onNavigate, globalSearch = '' }) {
   ];
 
   const stats = isPatient ? patientStats : doctorStats;
-
-  const filteredScans = recentScans.filter(scan => {
-    if (!globalSearch) return true;
-    const searchString = globalSearch.toLowerCase();
-    const patientName = isPatient ? profile.name : (scan.clinical_patients?.full_name || 'Unknown Patient');
-    return patientName.toLowerCase().includes(searchString);
-  });
 
   if (loading) return <div className="dashboard fade-in"><p>Loading dashboard...</p></div>;
 
@@ -137,12 +129,12 @@ export default function Dashboard({ onNavigate, globalSearch = '' }) {
             <button className="btn btn-outline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>View All</button>
           </div>
           <div className="scan-list">
-            {filteredScans.length === 0 ? (
+            {recentScans.length === 0 ? (
               <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                {globalSearch ? 'No scans found matching your search.' : "No recent scans found. Click 'Start New Analysis' to begin."}
+                No recent scans found. Click 'Start New Analysis' to begin.
               </div>
             ) : (
-              filteredScans.map(scan => (
+              recentScans.map(scan => (
                 <div key={scan.id} className="scan-item">
                   <div className="scan-info">
                     <div className="scan-avatar"><FileImage size={18} /></div>

@@ -3,7 +3,7 @@ import { Search, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import './Header.css';
 
-export default function Header({ globalSearch = '', setGlobalSearch = () => {} }) {
+export default function Header() {
   const [role, setRole] = useState('doctor');
 
   useEffect(() => {
@@ -24,18 +24,6 @@ export default function Header({ globalSearch = '', setGlobalSearch = () => {} }
       <div className="mobile-logo">
         <img src="/logo.png" alt="ProphyDent" className="logo-img" />
       </div>
-
-      {role !== 'patient' && (
-        <div className="search-bar">
-          <Search size={18} className="text-muted" />
-          <input 
-            type="text" 
-            placeholder="Search..." 
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-          />
-        </div>
-      )}
       
       <button className="icon-btn mobile-logout" onClick={handleLogout} title="Log Out">
         <LogOut size={20} />
