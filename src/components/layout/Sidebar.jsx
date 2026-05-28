@@ -9,8 +9,7 @@ const navItems = [
   { icon: Users, label: 'Patients', path: '/patients', roles: ['doctor'] },
   { icon: ImageIcon, label: 'Scans', path: '/analysis', roles: ['doctor', 'patient'] },
   { icon: Activity, label: 'Reports', path: '/reports', roles: ['doctor', 'patient'] },
-  { icon: Settings, label: 'Settings', path: '/settings', roles: ['doctor', 'patient'] },
-  { icon: LogOut, label: 'Logout', action: 'logout', roles: ['doctor', 'patient'] }
+  { icon: Settings, label: 'Settings', path: '/settings', roles: ['doctor', 'patient'] }
 ];
 
 export default function Sidebar() {

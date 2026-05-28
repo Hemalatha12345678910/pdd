@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Moon, Sun, Shield, Save, CheckCircle, Loader2, User } from 'lucide-react';
+import { Settings as SettingsIcon, Moon, Sun, Shield, Save, CheckCircle, Loader2, User, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import './Settings.css';
 
@@ -291,6 +291,32 @@ export default function Settings() {
                 {isUpdatingPassword ? <><Loader2 size={16} className="spinner mr-2"/> Updating...</> : 'Update Password'}
               </button>
             </form>
+          </div>
+        </section>
+
+        {/* Logout Section */}
+        <section className="settings-section glass-panel" style={{ border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+          <div className="section-header">
+            <div className="icon-wrap" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
+              <LogOut size={24} style={{ color: '#ef4444' }}/>
+            </div>
+            <div>
+              <h2 style={{ color: '#ef4444' }}>Sign Out</h2>
+              <p className="text-muted">Securely log out of your account on this device.</p>
+            </div>
+          </div>
+          
+          <div className="settings-content">
+            <button 
+              className="btn btn-primary" 
+              style={{ background: '#ef4444', border: 'none', width: 'fit-content', padding: '0.75rem 2rem' }}
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/welcome';
+              }}
+            >
+              Sign Out
+            </button>
           </div>
         </section>
 
