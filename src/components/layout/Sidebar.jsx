@@ -9,7 +9,8 @@ const navItems = [
   { icon: Users, label: 'Patients', path: '/patients', roles: ['doctor'] },
   { icon: ImageIcon, label: 'Scans & Analysis', path: '/analysis', roles: ['doctor', 'patient'] },
   { icon: Activity, label: 'Reports', path: '/reports', roles: ['doctor', 'patient'] },
-  { icon: Settings, label: 'Settings', path: '/settings', roles: ['doctor', 'patient'] }
+  { icon: Settings, label: 'Settings', path: '/settings', roles: ['doctor', 'patient'] },
+  { icon: LogOut, label: 'Logout', action: 'logout', roles: ['doctor', 'patient'] }
 ];
 
 export default function Sidebar() {
@@ -57,8 +58,8 @@ export default function Sidebar() {
             return (
               <button 
                 key={index} 
-                className={`nav-item ${location.pathname.startsWith(item.path) ? 'active' : ''}`}
-                onClick={() => navigate(item.path)}
+                className={`nav-item ${item.path && location.pathname.startsWith(item.path) ? 'active' : ''}`}
+                onClick={() => item.action === 'logout' ? handleSignOut() : navigate(item.path)}
               >
                 <item.icon size={20} />
                 <span>{label}</span>
