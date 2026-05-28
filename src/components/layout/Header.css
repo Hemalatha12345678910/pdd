@@ -95,6 +95,40 @@
 
 @media (max-width: 768px) {
   .header {
-    display: none;
+    display: flex;
+    padding: 0.75rem 1rem;
+    height: auto;
+    margin-bottom: 1rem;
+    border-radius: 0 0 1rem 1rem;
+    justify-content: flex-start;
+  }
+
+  .mobile-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mobile-logo-text {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  
+  .mobile-logo-text h2 {
+    font-size: 1.2rem;
+    color: var(--color-primary);
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .mobile-ai-badge {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 1rem;
   }
 }
