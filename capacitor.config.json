@@ -1,6 +1,6 @@
 {
   "appId": "com.prophydent.app",
-  "appName": "ProphyDent",
+  "appName": "ProphyDent AI",
   "webDir": "dist",
   "plugins": {
     "CapacitorHttp": {
