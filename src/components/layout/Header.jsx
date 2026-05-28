@@ -1,12 +1,22 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import './Header.css';
 
 export default function Header() {
+  const [role, setRole] = useState('doctor');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setRole(user.user_metadata?.role || 'doctor');
+      }
+    });
+  }, []);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/login';
+    window.location.href = '/welcome';
   };
 
   return (
@@ -15,10 +25,12 @@ export default function Header() {
         <img src="/logo.png" alt="ProphyDent" className="logo-img" />
       </div>
 
-      <div className="search-bar">
-        <Search size={18} className="text-muted" />
-        <input type="text" placeholder="Search..." />
-      </div>
+      {role !== 'patient' && (
+        <div className="search-bar">
+          <Search size={18} className="text-muted" />
+          <input type="text" placeholder="Search..." />
+        </div>
+      )}
       
       <button className="icon-btn mobile-logout" onClick={handleLogout} title="Log Out">
         <LogOut size={20} />
