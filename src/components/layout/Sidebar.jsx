@@ -7,7 +7,7 @@ import './Sidebar.css';
 const navItems = [
   { icon: Home, label: 'Dashboard', path: '/dashboard', roles: ['doctor', 'patient'] },
   { icon: Users, label: 'Patients', path: '/patients', roles: ['doctor'] },
-  { icon: ImageIcon, label: 'Scans & Analysis', path: '/analysis', roles: ['doctor', 'patient'] },
+  { icon: ImageIcon, label: 'Scans', path: '/analysis', roles: ['doctor', 'patient'] },
   { icon: Activity, label: 'Reports', path: '/reports', roles: ['doctor', 'patient'] },
   { icon: Settings, label: 'Settings', path: '/settings', roles: ['doctor', 'patient'] },
   { icon: LogOut, label: 'Logout', action: 'logout', roles: ['doctor', 'patient'] }
@@ -51,7 +51,7 @@ export default function Sidebar() {
           .map((item, index) => {
             let label = item.label;
             if (profile.role === 'patient') {
-              if (item.label === 'Scans & Analysis') label = 'My Scans';
+              if (item.label === 'Scans') label = 'My Scans';
               if (item.label === 'Reports') label = 'My Reports';
             }
             
