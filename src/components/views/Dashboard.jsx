@@ -3,7 +3,7 @@ import { Users, FileImage, ShieldAlert, Activity, ArrowRight, Heart } from 'luci
 import { supabase } from '../../lib/supabase';
 import './Dashboard.css';
 
-export default function Dashboard({ onNavigate }) {
+export default function Dashboard({ onNavigate, globalSearch = '' }) {
   const [profile, setProfile] = useState({ name: '', role: 'doctor' });
   const [loading, setLoading] = useState(true);
   const [recentScans, setRecentScans] = useState([]);
@@ -89,6 +89,13 @@ export default function Dashboard({ onNavigate }) {
 
   const stats = isPatient ? patientStats : doctorStats;
 
+  const filteredScans = recentScans.filter(scan => {
+    if (!globalSearch) return true;
+    const searchString = globalSearch.toLowerCase();
+    const patientName = isPatient ? profile.name : (scan.clinical_patients?.full_name || 'Unknown Patient');
+    return patientName.toLowerCase().includes(searchString);
+  });
+
   if (loading) return <div className="dashboard fade-in"><p>Loading dashboard...</p></div>;
 
   return (
@@ -130,12 +137,12 @@ export default function Dashboard({ onNavigate }) {
             <button className="btn btn-outline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>View All</button>
           </div>
           <div className="scan-list">
-            {recentScans.length === 0 ? (
+            {filteredScans.length === 0 ? (
               <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                No recent scans found. Click 'Start New Analysis' to begin.
+                {globalSearch ? 'No scans found matching your search.' : "No recent scans found. Click 'Start New Analysis' to begin."}
               </div>
             ) : (
-              recentScans.map(scan => (
+              filteredScans.map(scan => (
                 <div key={scan.id} className="scan-item">
                   <div className="scan-info">
                     <div className="scan-avatar"><FileImage size={18} /></div>

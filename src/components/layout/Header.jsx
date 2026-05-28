@@ -3,7 +3,7 @@ import { Search, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import './Header.css';
 
-export default function Header() {
+export default function Header({ globalSearch = '', setGlobalSearch = () => {} }) {
   const [role, setRole] = useState('doctor');
 
   useEffect(() => {
@@ -28,7 +28,12 @@ export default function Header() {
       {role !== 'patient' && (
         <div className="search-bar">
           <Search size={18} className="text-muted" />
-          <input type="text" placeholder="Search..." />
+          <input 
+            type="text" 
+            placeholder="Search..." 
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+          />
         </div>
       )}
       
