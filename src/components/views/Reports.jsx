@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
 import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import html2pdf from 'html2pdf.js';
 import './Reports.css';
 
@@ -131,13 +132,31 @@ export default function Reports() {
                         
                         const opt = {
                           margin:       0.5,
-                          filename:     `Clinical_Report_${selectedReport.clinical_patients?.full_name || 'Patient'}.pdf`,
+                          filename:     `Clinical_Report_${selectedReport.clinical_patients?.full_name?.replace(/\s+/g, '_') || 'Patient'}.pdf`,
                           image:        { type: 'jpeg', quality: 0.98 },
                           html2canvas:  { scale: 2, useCORS: true },
                           jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
                         };
                         
-                        html2pdf().set(opt).from(element).save();
+                        html2pdf().set(opt).from(element).outputPdf('datauristring').then(async (pdfBase64) => {
+                          try {
+                            const base64Data = pdfBase64.split(',')[1];
+                            const result = await Filesystem.writeFile({
+                                path: opt.filename,
+                                data: base64Data,
+                                directory: Directory.Cache
+                            });
+                            
+                            await Share.share({
+                                title: 'Clinical Report PDF',
+                                url: result.uri,
+                                dialogTitle: 'Save or Share PDF'
+                            });
+                          } catch (e) {
+                            console.error("Native save failed, falling back to browser download", e);
+                            html2pdf().set(opt).from(element).save();
+                          }
+                        });
                       }}
                       title="Download PDF"
                     >
