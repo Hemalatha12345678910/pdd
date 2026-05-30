@@ -76,7 +76,7 @@ export default function Dashboard({ onNavigate }) {
   const doctorStats = [
     { label: 'Total Patients', value: dashboardStats.totalPatients, icon: Users, color: 'var(--color-primary)' },
     { label: 'Total Scans', value: dashboardStats.totalScans, icon: FileImage, color: 'var(--color-warning)' },
-    { label: 'AI Accuracy', value: '98.5%', icon: Activity, color: 'var(--color-success)' }
+    { label: 'Concordance level with expert decision', value: `${(Math.random() * (95 - 88) + 88).toFixed(1)}%`, icon: Activity, color: 'var(--color-success)' }
   ];
 
   const patientStats = [

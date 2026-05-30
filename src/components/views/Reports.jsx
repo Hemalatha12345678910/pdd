@@ -119,10 +119,19 @@ export default function Reports() {
                   </div>
                   <button 
                     className="btn btn-outline print-btn" 
-                    onClick={() => window.print()}
-                    title="Print Clinical Report"
+                    onClick={() => {
+                      if (navigator.share) {
+                        navigator.share({
+                          title: 'Clinical Report',
+                          text: selectedReport.gemini_report || "No text report available."
+                        }).catch(console.error);
+                      } else {
+                        window.print();
+                      }
+                    }}
+                    title="Share or Print Clinical Report"
                   >
-                    <Printer size={18} style={{ marginRight: '0.5rem' }}/> Print Report
+                    <Printer size={18} style={{ marginRight: '0.5rem' }}/> Share / Print
                   </button>
                 </div>
               </div>
