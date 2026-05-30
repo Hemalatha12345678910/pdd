@@ -3,6 +3,7 @@ import { Activity, FileText, Calendar, User, Search, ChevronRight, Printer } fro
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
+import { Share } from '@capacitor/share';
 import './Reports.css';
 
 export default function Reports() {
@@ -119,13 +120,15 @@ export default function Reports() {
                   </div>
                   <button 
                     className="btn btn-outline print-btn" 
-                    onClick={() => {
-                      if (navigator.share) {
-                        navigator.share({
+                    onClick={async () => {
+                      try {
+                        await Share.share({
                           title: 'Clinical Report',
-                          text: selectedReport.gemini_report || "No text report available."
-                        }).catch(console.error);
-                      } else {
+                          text: selectedReport.gemini_report || "No text report available.",
+                          dialogTitle: 'Share or Print Report',
+                        });
+                      } catch (err) {
+                        console.error('Error sharing', err);
                         window.print();
                       }
                     }}
