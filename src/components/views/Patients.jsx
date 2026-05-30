@@ -95,7 +95,6 @@ function ViewPatients() {
                 <th>DOB</th>
                 <th>Email</th>
                 <th>Status</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -108,9 +107,6 @@ function ViewPatients() {
                     <span className={`status-badge ${patient.status === 'Active' ? 'success' : 'warning'}`}>
                       {patient.status}
                     </span>
-                  </td>
-                  <td>
-                    <button className="btn-icon"><MoreVertical size={18} /></button>
                   </td>
                 </tr>
               ))}
