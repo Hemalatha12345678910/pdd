@@ -217,7 +217,7 @@ export default function Reports() {
                 <div className="viewer-section markdown-body" style={{ marginTop: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--color-border)' }}>
                   <h3>Comprehensive Clinical Analysis</h3>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {selectedReport.gemini_report ? selectedReport.gemini_report.replace(/Recommended Treatment Plan/gi, 'Preventive Plan').replace(/Treatment Plan/gi, 'Preventive Plan').replace(/Next Steps/gi, 'Preventive Plan').replace(/Recommendations/gi, 'Preventive Plan') : "No text report available."}
+                    {selectedReport.gemini_report ? (userRole === 'patient' ? `### Preventive Plan\n\n${selectedReport.gemini_report}` : selectedReport.gemini_report.replace(/Recommended Treatment Plan/gi, 'Preventive Plan').replace(/Treatment Plan/gi, 'Preventive Plan')) : "No text report available."}
                   </ReactMarkdown>
                 </div>
               </div>
