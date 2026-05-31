@@ -365,7 +365,7 @@ export default function UploadAnalysis({ onNavigate }) {
               <div className="gemini-primary-report markdown-body" style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--color-border)' }}>
                 {analysisResults.geminiReport ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {userRole === 'patient' ? `### Preventive Plan\n\n${analysisResults.geminiReport}` : analysisResults.geminiReport.replace(/Recommended Treatment Plan/gi, 'Preventive Plan').replace(/Treatment Plan/gi, 'Preventive Plan')}
+                    {userRole === 'patient' ? `### Preventive Plan\n\n${analysisResults.geminiReport}\n\n### General Dental Tips\n- **Brush Twice a Day**: Use fluoride toothpaste to strengthen enamel.\n- **Floss Daily**: Remove plaque from areas your brush can't reach.\n- **Limit Sugary Snacks**: Reduces the risk of acid attacks and cavities.\n- **Drink Water**: Helps wash away food particles and bacteria.\n- **Regular Checkups**: Always see your dentist every 6 months.` : analysisResults.geminiReport.replace(/Recommended Treatment Plan/gi, 'Preventive Plan').replace(/Treatment Plan/gi, 'Preventive Plan')}
                   </ReactMarkdown>
                 ) : (
                   <p className="text-muted">Analysis could not be generated.</p>
