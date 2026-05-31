@@ -365,7 +365,7 @@ export default function UploadAnalysis({ onNavigate }) {
               <div className="gemini-primary-report markdown-body" style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--color-border)' }}>
                 {analysisResults.geminiReport ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {analysisResults.geminiReport.replace(/Recommended Treatment Plan/gi, 'Preventive Plan').replace(/Treatment Plan/gi, 'Preventive Plan')}
+                    {analysisResults.geminiReport.replace(/Recommended Treatment Plan/gi, 'Preventive Plan').replace(/Treatment Plan/gi, 'Preventive Plan').replace(/Next Steps/gi, 'Preventive Plan').replace(/Recommendations/gi, 'Preventive Plan')}
                   </ReactMarkdown>
                 ) : (
                   <p className="text-muted">Analysis could not be generated.</p>
