@@ -6,7 +6,11 @@ const KEY_BACKEND_URL = 'prophydent-backend-url';
 export const getBackendUrl = () => {
   const savedUrl = localStorage.getItem(KEY_BACKEND_URL);
   if (savedUrl) {
-    return resolveUrlForPlatform(savedUrl);
+    if (savedUrl.includes('pdd-iawo.onrender.com')) {
+      localStorage.removeItem(KEY_BACKEND_URL);
+    } else {
+      return resolveUrlForPlatform(savedUrl);
+    }
   }
 
   // Smart defaults based on platform
