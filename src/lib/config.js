@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 
-const DEFAULT_PRODUCTION_URL = 'https://pdd-iawo.onrender.com/analyze';
+const DEFAULT_PRODUCTION_URL = 'https://pdd-backend-os1e.onrender.com/analyze';
 const KEY_BACKEND_URL = 'prophydent-backend-url';
 
 export const getBackendUrl = () => {
