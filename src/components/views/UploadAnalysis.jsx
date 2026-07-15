@@ -29,7 +29,7 @@ const getToothStatus = (type) => {
 export default function UploadAnalysis({ onNavigate }) {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState(null);
-  const [status, setStatus] = useState('idle'); // idle, scanning, complete
+  const [status, setStatus] = useState('idle'); // idle, waking, scanning, complete
   const [analysisResults, setAnalysisResults] = useState(null);
   const [selectedFinding, setSelectedFinding] = useState(null);
 
@@ -133,8 +133,19 @@ export default function UploadAnalysis({ onNavigate }) {
     reader.readAsDataURL(uploadedFile);
   };
 
+  const wakeUpServer = async (baseUrl) => {
+    // Ping the health endpoint to wake Render's free-tier server before the heavy request
+    const healthUrl = baseUrl.replace('/analyze', '/health');
+    try {
+      const res = await fetch(healthUrl, { method: 'GET', signal: AbortSignal.timeout(60000) });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
   const handleAnalyze = async (imageInput) => {
-    setStatus('scanning');
+    setStatus('waking');
     setAnalysisResults(null);
 
     try {
@@ -147,6 +158,11 @@ export default function UploadAnalysis({ onNavigate }) {
       }
       
       const apiUrl = getBackendUrl();
+
+      // Wake the server first (handles Render free-tier cold start)
+      await wakeUpServer(apiUrl);
+      setStatus('scanning');
+
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -369,7 +385,7 @@ export default function UploadAnalysis({ onNavigate }) {
           ) : (
             <div className="image-preview-container" onClick={() => setSelectedFinding(null)}>
               <img src={file} alt="Scan preview" className="image-preview" />
-              {status === 'scanning' && (
+              {(status === 'scanning' || status === 'waking') && (
                 <div className="scanning-overlay">
                   <div className="scanner-line"></div>
                 </div>
@@ -407,6 +423,19 @@ export default function UploadAnalysis({ onNavigate }) {
               <ImageIcon size={48} className="text-muted" />
               <h3>Awaiting Image</h3>
               <p className="text-muted text-center">Upload an image to start the AI analysis.</p>
+            </div>
+          )}
+
+          {status === 'waking' && (
+            <div className="scanning-state glass-panel animate-pulse">
+              <Loader2 size={48} className="spinner text-primary" style={{ transformOrigin: 'center' }} />
+              <h3>Waking Up Server...</h3>
+              <p className="text-muted text-center" style={{ fontSize: '0.9rem' }}>
+                Preparing the AI diagnostic engine. On the free tier, this can take up to 60 seconds. Please keep this screen open.
+              </p>
+              <div className="progress-bar-container" style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.1)', borderRadius: '3px', marginTop: '1rem', overflow: 'hidden' }}>
+                <div className="progress-bar" style={{ height: '100%', background: 'var(--color-primary)', width: '100%', transformOrigin: 'left', animation: 'progressLoader 60s linear forwards' }}></div>
+              </div>
             </div>
           )}
 

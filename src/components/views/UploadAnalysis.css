@@ -223,6 +223,12 @@
   100% { width: 100%; }
 }
 
+@keyframes progressLoader {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+
 
 .dashboard-header {
   display: flex;
