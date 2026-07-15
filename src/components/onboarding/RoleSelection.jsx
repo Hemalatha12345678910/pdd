@@ -13,8 +13,8 @@ export default function RoleSelection() {
   return (
     <div className="onboarding-screen">
       <div className="role-content fade-in">
-        <img src="/logo.png" alt="Logo" className="small-logo mb-6" />
-        <h2>How will you be using ProphyDent?</h2>
+        <img src="./logo.png" alt="Logo" className="small-logo mb-6" />
+        <h2>How will you be using Smile Guard AI?</h2>
         <p className="text-muted mb-8">Select your role to customize your experience.</p>
         
         <div className="role-cards">

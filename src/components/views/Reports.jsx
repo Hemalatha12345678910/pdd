@@ -23,7 +23,7 @@ export default function Reports() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const role = user.user_metadata?.role || 'doctor';
+    const role = user.user_metadata?.role || 'patient';
     setUserRole(role);
 
     let query = supabase
@@ -141,17 +141,21 @@ export default function Reports() {
                         html2pdf().set(opt).from(element).outputPdf('datauristring').then(async (pdfBase64) => {
                           try {
                             const base64Data = pdfBase64.split(',')[1];
-                            const result = await Filesystem.writeFile({
-                                path: opt.filename,
-                                data: base64Data,
-                                directory: Directory.Cache
-                            });
-                            
-                            await Share.share({
-                                title: 'Clinical Report PDF',
-                                url: result.uri,
-                                dialogTitle: 'Save or Share PDF'
-                            });
+                            if (window.AndroidInterface) {
+                              window.AndroidInterface.downloadPdf(opt.filename, base64Data);
+                            } else {
+                              const result = await Filesystem.writeFile({
+                                  path: opt.filename,
+                                  data: base64Data,
+                                  directory: Directory.Cache
+                              });
+                              
+                              await Share.share({
+                                  title: 'Clinical Report PDF',
+                                  url: result.uri,
+                                  dialogTitle: 'Save or Share PDF'
+                              });
+                            }
                           } catch (e) {
                             console.error("Native save failed, falling back to browser download", e);
                             html2pdf().set(opt).from(element).save();
@@ -166,11 +170,15 @@ export default function Reports() {
                       className="btn btn-primary" 
                       onClick={async () => {
                         try {
-                          await Share.share({
-                            title: 'Clinical Report',
-                            text: selectedReport.gemini_report || "No text report available.",
-                            dialogTitle: 'Share Report',
-                          });
+                          if (window.AndroidInterface) {
+                            window.AndroidInterface.shareText('Clinical Report', selectedReport.gemini_report || "No text report available.");
+                          } else {
+                            await Share.share({
+                              title: 'Clinical Report',
+                              text: selectedReport.gemini_report || "No text report available.",
+                              dialogTitle: 'Share Report',
+                            });
+                          }
                         } catch (err) {
                           console.error('Error sharing', err);
                         }

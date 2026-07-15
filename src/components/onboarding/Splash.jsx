@@ -15,8 +15,8 @@ export default function Splash() {
   return (
     <div className="splash-screen">
       <div className="splash-content">
-        <img src="/logo.png" alt="ProphyDent AI" className="splash-logo" />
-        <h1 className="splash-title">ProphyDent AI</h1>
+        <img src="./logo.png" alt="Smile Guard AI" className="splash-logo" />
+        <h1 className="splash-title">Smile Guard AI</h1>
         <div className="loading-spinner"></div>
       </div>
     </div>

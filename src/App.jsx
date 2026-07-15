@@ -7,6 +7,7 @@ import UploadAnalysis from './components/views/UploadAnalysis';
 import Patients from './components/views/Patients';
 import Reports from './components/views/Reports';
 import Settings from './components/views/Settings';
+import TreatmentPlan from './components/views/TreatmentPlan';
 import Splash from './components/onboarding/Splash';
 import Welcome from './components/onboarding/Welcome';
 import RoleSelection from './components/onboarding/RoleSelection';
@@ -111,6 +112,16 @@ function App() {
           <ProtectedRoute>
             <DashboardLayout>
               <Settings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/treatment" 
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <TreatmentPlan />
             </DashboardLayout>
           </ProtectedRoute>
         } 

@@ -91,6 +91,7 @@ function ViewPatients() {
           <table className="patients-table">
             <thead>
               <tr>
+                <th>Patient ID</th>
                 <th>Patient Name</th>
                 <th>DOB</th>
                 <th>Email</th>
@@ -100,6 +101,7 @@ function ViewPatients() {
             <tbody>
               {filteredPatients.map(patient => (
                 <tr key={patient.id}>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--color-primary)', fontWeight: 600 }}>{patient.patient_id || '—'}</td>
                   <td className="font-medium">{patient.full_name}</td>
                   <td>{patient.dob}</td>
                   <td>{patient.email || '-'}</td>
@@ -118,11 +120,18 @@ function ViewPatients() {
   );
 }
 
+function generatePatientId() {
+  const year = new Date().getFullYear();
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `PID-${year}-${rand}`;
+}
+
 function AddPatient({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
   const [formData, setFormData] = useState({
+    patient_id: generatePatientId(),
     full_name: '',
     dob: '',
     email: '',
@@ -146,6 +155,7 @@ function AddPatient({ onSuccess }) {
       const { error } = await supabase.from('clinical_patients').insert([
         {
           doctor_id: user.id,
+          patient_id: formData.patient_id,
           full_name: formData.full_name,
           dob: formData.dob,
           email: formData.email,
@@ -180,20 +190,26 @@ function AddPatient({ onSuccess }) {
       <form onSubmit={handleSubmit} className="patient-form">
         <div className="form-row">
           <div className="form-group">
+            <label>Patient ID <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 400 }}>(auto-generated, editable)</span></label>
+            <input type="text" name="patient_id" value={formData.patient_id} onChange={handleChange} placeholder="e.g. PID-2026-1234" required style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }} />
+          </div>
+          <div className="form-group">
             <label>Full Name</label>
             <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} placeholder="e.g. Sarah Williams" required />
           </div>
+        </div>
+        <div className="form-row">
           <div className="form-group">
             <label>Date of Birth</label>
             <input type="date" name="dob" value={formData.dob} onChange={handleChange} required />
           </div>
-        </div>
         
-        <div className="form-row">
           <div className="form-group">
             <label>Email Address</label>
             <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="sarah@example.com" />
           </div>
+        </div>
+        <div className="form-row">
           <div className="form-group">
             <label>Phone Number</label>
             <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="(555) 123-4567" />

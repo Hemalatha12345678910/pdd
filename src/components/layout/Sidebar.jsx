@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Users, Settings, Image as ImageIcon, Home, LogOut } from 'lucide-react';
+import { Activity, Users, Settings, Image as ImageIcon, Home, LogOut, ClipboardList } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import './Sidebar.css';
 
 const navItems = [
-  { icon: Home, label: 'Dashboard', path: '/dashboard', roles: ['doctor', 'patient'] },
-  { icon: Users, label: 'Patients', path: '/patients', roles: ['doctor'] },
-  { icon: ImageIcon, label: 'Scans', path: '/analysis', roles: ['doctor', 'patient'] },
-  { icon: Activity, label: 'Reports', path: '/reports', roles: ['doctor', 'patient'] },
-  { icon: Settings, label: 'Settings', path: '/settings', roles: ['doctor', 'patient'] }
+  { icon: Home,          label: 'Dashboard',        path: '/dashboard',  roles: ['doctor', 'patient'] },
+  { icon: Users,         label: 'Patients',          path: '/patients',   roles: ['doctor'] },
+  { icon: ImageIcon,     label: 'Scans',             path: '/analysis',   roles: ['doctor', 'patient'] },
+  { icon: ClipboardList, label: 'Treatment Plans',   path: '/treatment',  roles: ['doctor'] },
+  { icon: ClipboardList, label: 'My Treatment',      path: '/treatment',  roles: ['patient'] },
+  { icon: Activity,      label: 'Reports',           path: '/reports',    roles: ['doctor', 'patient'] },
+  { icon: Settings,      label: 'Settings',          path: '/settings',   roles: ['doctor', 'patient'] }
 ];
 
 export default function Sidebar() {
@@ -22,7 +24,7 @@ export default function Sidebar() {
       if (user) {
         setProfile({
           name: user.user_metadata?.full_name || 'User',
-          role: user.user_metadata?.role || 'doctor',
+          role: user.user_metadata?.role || 'patient',
           displayRole: user.user_metadata?.role === 'doctor' ? 'Dentist' : 'Patient',
           avatar: user.user_metadata?.avatar || null
         });
@@ -39,8 +41,8 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="logo">
-          <img src="/logo.png" alt="ProphyDent AI" className="logo-img" />
-          <h2 className="logo-text">ProphyDent</h2>
+          <img src="./logo.png" alt="Smile Guard AI" className="logo-img" />
+          <h2 className="logo-text">Smile Guard AI</h2>
         </div>
         <span className="ai-badge">AI</span>
       </div>

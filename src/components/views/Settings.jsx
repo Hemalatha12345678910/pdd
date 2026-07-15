@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Moon, Sun, Shield, Save, CheckCircle, Loader2, User, LogOut } from 'lucide-react';
+import { Settings as SettingsIcon, Moon, Sun, Shield, Save, CheckCircle, Loader2, User, LogOut, Server, RotateCcw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getBackendUrl, setBackendUrl, resetBackendUrl } from '../../lib/config';
+import { Capacitor } from '@capacitor/core';
 import './Settings.css';
 
 export default function Settings() {
@@ -23,11 +25,22 @@ export default function Settings() {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
   const [profileErr, setProfileErr] = useState('');
+  const [role, setRole] = useState('patient');
+
+  // Developer Backend Connection State
+  const [apiUrl, setApiUrl] = useState('');
+  const [devMsg, setDevMsg] = useState('');
+
+  const queryParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+  const isDevMode = queryParams.get('dev') === 'true';
 
   useEffect(() => {
     // Load theme
     const savedTheme = localStorage.getItem('prophydent-theme') || 'light';
     setTheme(savedTheme);
+
+    // Load backend URL
+    setApiUrl(getBackendUrl());
 
     // Load user profile
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -38,6 +51,7 @@ export default function Settings() {
         setAddress(user.user_metadata?.address || '');
         setGender(user.user_metadata?.gender || 'male');
         setAvatar(user.user_metadata?.avatar || '');
+        setRole(user.user_metadata?.role || 'patient');
       }
     });
   }, []);
@@ -47,6 +61,20 @@ export default function Settings() {
     setTheme(newTheme);
     localStorage.setItem('prophydent-theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
+  const handleUpdateBackend = (e) => {
+    e.preventDefault();
+    setBackendUrl(apiUrl);
+    setDevMsg("Backend URL updated successfully!");
+    setTimeout(() => setDevMsg(''), 3000);
+  };
+
+  const handleResetBackend = () => {
+    resetBackendUrl();
+    setApiUrl(getBackendUrl());
+    setDevMsg("Backend URL reset to default.");
+    setTimeout(() => setDevMsg(''), 3000);
   };
 
   const handleImageUpload = (e) => {
@@ -293,6 +321,78 @@ export default function Settings() {
             </form>
           </div>
         </section>
+
+        {/* Developer & Backend Settings Section */}
+        {isDevMode && (
+          <section className="settings-section glass-panel">
+            <div className="section-header">
+              <div className="icon-wrap bg-primary-light">
+                <Server size={24} className="text-primary"/>
+              </div>
+              <div>
+                <h2>Backend Connection</h2>
+                <p className="text-muted">Configure the connection to the AI Analysis server.</p>
+              </div>
+            </div>
+            
+            <div className="settings-content">
+              <form onSubmit={handleUpdateBackend} className="developer-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                <div className="form-group">
+                  <label>Backend API Endpoint URL</label>
+                  <input 
+                    type="url" 
+                    placeholder="https://example.com/analyze"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrl(e.target.value)}
+                    required
+                    style={{ width: '100%' }}
+                  />
+                  <p className="text-muted text-sm" style={{ marginTop: '0.4rem' }}>
+                    Current active endpoint resolving to: <code style={{ backgroundColor: 'var(--color-background)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>{getBackendUrl()}</code>
+                  </p>
+                </div>
+
+                <div className="preset-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-outline" 
+                    style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                    onClick={() => setApiUrl('https://bhavya0520-pdd-backend.hf.space/analyze')}
+                  >
+                    🚀 Hugging Face Space (Production)
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-outline" 
+                    style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                    onClick={() => setApiUrl('http://localhost:5000/analyze')}
+                  >
+                    💻 Local Web Server (localhost)
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-outline" 
+                    style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                    onClick={() => setApiUrl('http://10.0.2.2:5000/analyze')}
+                  >
+                    🤖 Android Emulator (10.0.2.2)
+                  </button>
+                </div>
+
+                {devMsg && <div className="alert alert-success">{devMsg}</div>}
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                  <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Save size={16} /> Save Connection
+                  </button>
+                  <button type="button" className="btn btn-outline" onClick={handleResetBackend} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <RotateCcw size={16} /> Reset Default
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+        )}
 
         {/* Logout Section */}
         <section className="settings-section glass-panel" style={{ border: '1px solid rgba(239, 68, 68, 0.3)' }}>

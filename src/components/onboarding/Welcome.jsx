@@ -9,8 +9,8 @@ export default function Welcome() {
   return (
     <div className="onboarding-screen">
       <div className="welcome-content fade-in">
-        <img src="/logo.png" alt="ProphyDent AI Logo" className="welcome-logo" />
-        <h1>Welcome to ProphyDent AI</h1>
+        <img src="./logo.png" alt="Smile Guard AI Logo" className="welcome-logo" />
+        <h1>Welcome to Smile Guard AI</h1>
         <p className="welcome-subtitle">Precision Prevention, Powered by AI</p>
         
         <button className="btn btn-primary btn-large mt-8" onClick={() => navigate('/role')}>

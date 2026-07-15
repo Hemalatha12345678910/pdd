@@ -116,7 +116,7 @@ export default function Auth() {
         </button>
         
         <div className="auth-header">
-          <img src="/logo.png" alt="Logo" className="small-logo" />
+          <img src="./logo.png" alt="Logo" className="small-logo" />
           <h2>{isLogin ? 'Welcome Back' : 'Create an Account'}</h2>
           <p className="text-muted">
             {role === 'doctor' ? 'Clinical Portal' : 'Patient Portal'}

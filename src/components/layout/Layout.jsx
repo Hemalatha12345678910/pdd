@@ -1,6 +1,7 @@
 import React from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import AIChatbot from './AIChatbot';
 import './Layout.css';
 
 export default function Layout({ children }) {
@@ -13,6 +14,7 @@ export default function Layout({ children }) {
           {children}
         </div>
       </main>
+      <AIChatbot />
     </div>
   );
 }

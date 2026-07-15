@@ -1,0 +1,206 @@
+.treatment-plan {
+  padding: 1.5rem;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* Progress bar */
+.tp-progress-bar-bg {
+  height: 10px;
+  background: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.tp-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), #38bdf8);
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+/* Patient selector */
+.plan-select {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-main);
+  color: var(--color-text-main);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+/* Section toggle */
+.section-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+  transition: background 0.15s;
+}
+.section-toggle:hover {
+  background: var(--color-bg-main);
+}
+
+/* Timeline */
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.2rem;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-main);
+  transition: all 0.2s;
+}
+.timeline-item.status-done {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+.timeline-item.status-current {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 2px #bfdbfe44;
+}
+
+.timeline-icon { flex-shrink: 0; }
+
+.timeline-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.timeline-label {
+  font-weight: 500;
+  font-size: 0.92rem;
+}
+
+.current-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+.timeline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stage-select {
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-main);
+  font-size: 0.8rem;
+  font-family: inherit;
+}
+
+.add-stage-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.stage-input {
+  flex: 1;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-main);
+  color: var(--color-text-main);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+/* Notes */
+.plan-textarea {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-main);
+  color: var(--color-text-main);
+  font-family: inherit;
+  font-size: 0.88rem;
+  resize: vertical;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+.plan-textarea:focus { outline: none; border-color: var(--color-primary); }
+
+.patient-notes-view {
+  background: var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  font-size: 0.88rem;
+}
+
+/* Photos */
+.photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.8rem;
+}
+.photo-card {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+}
+.photo-card img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+}
+.photo-meta {
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.photo-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(220,38,38,0.85);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Spinner slow */
+.spinner-slow {
+  animation: spin 2s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+
+.text-danger { color: var(--color-danger); }

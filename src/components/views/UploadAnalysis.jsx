@@ -1,23 +1,77 @@
 import React, { useState, useEffect } from 'react';
-import { UploadCloud, Image as ImageIcon, ArrowLeft, Loader2, AlertTriangle, CheckCircle, Info, Lock } from 'lucide-react';
+import { UploadCloud, Image as ImageIcon, ArrowLeft, Loader2, AlertTriangle, CheckCircle, Info, Lock, Camera, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
+import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
+import { getBackendUrl } from '../../lib/config';
 import './UploadAnalysis.css';
+
+const STATUS_MAP = {
+  'tooth': { emoji: '🟢', label: 'Healthy', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+  'caries': { emoji: '🔴', label: 'Requires Treatment', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  'cavity': { emoji: '🔴', label: 'Requires Treatment', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  'gum swelling': { emoji: '🟡', label: 'Needs Monitoring', color: '#d97706', bg: '#fef9c3', border: '#fde047' },
+  'tooth_discolation': { emoji: '🟡', label: 'Needs Monitoring', color: '#d97706', bg: '#fef9c3', border: '#fde047' },
+  'missing-tooth': { emoji: '⚪', label: 'Missing Tooth', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db' },
+  'treated': { emoji: '🔵', label: 'Treated', color: '#2563eb', bg: '#dbeafe', border: '#93c5fd' },
+};
+
+const getToothStatus = (type) => {
+  const key = type.toLowerCase();
+  for (const [k, v] of Object.entries(STATUS_MAP)) {
+    if (key.includes(k)) return v;
+  }
+  return { emoji: '🟡', label: 'Needs Monitoring', color: '#d97706', bg: '#fef9c3', border: '#fde047' };
+};
 
 export default function UploadAnalysis({ onNavigate }) {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('idle'); // idle, scanning, complete
   const [analysisResults, setAnalysisResults] = useState(null);
-  
+  const [selectedFinding, setSelectedFinding] = useState(null);
+
   const [patients, setPatients] = useState([]);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [loadingPatients, setLoadingPatients] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [patientEmail, setPatientEmail] = useState('');
+  const [emailLookupStatus, setEmailLookupStatus] = useState(''); // '', 'found', 'not_found'
   const [userRole, setUserRole] = useState('doctor');
   const [currentUser, setCurrentUser] = useState(null);
+
+  const capturePhoto = async (source) => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const check = await CapCamera.checkPermissions();
+          if (check.camera !== 'granted' || check.photos !== 'granted') {
+            await CapCamera.requestPermissions();
+          }
+        } catch (pe) {
+          console.warn("Failed checking/requesting permissions: ", pe);
+        }
+      }
+
+      const photo = await CapCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: source
+      });
+
+      const base64Image = `data:image/jpeg;base64,${photo.base64String}`;
+      setFile(base64Image);
+      handleAnalyze(photo.base64String);
+    } catch (err) {
+      console.error("Camera error:", err);
+      if (err.message && err.message.includes("User cancelled")) return;
+      alert(`Camera Error: ${err.message || err}`);
+    }
+  };
 
   useEffect(() => {
     fetchPatients();
@@ -28,7 +82,7 @@ export default function UploadAnalysis({ onNavigate }) {
     if (!user) return;
     
     setCurrentUser(user);
-    const role = user.user_metadata?.role || 'doctor';
+    const role = user.user_metadata?.role || 'patient';
     setUserRole(role);
 
     if (role === 'patient') {
@@ -79,16 +133,20 @@ export default function UploadAnalysis({ onNavigate }) {
     reader.readAsDataURL(uploadedFile);
   };
 
-  const handleAnalyze = async (imageFile) => {
+  const handleAnalyze = async (imageInput) => {
     setStatus('scanning');
     setAnalysisResults(null);
 
     try {
-      const base64Image = await convertToBase64(imageFile);
-      const base64Data = base64Image.split(',')[1];
+      let base64Data;
+      if (typeof imageInput === 'string') {
+        base64Data = imageInput;
+      } else {
+        const base64Image = await convertToBase64(imageInput);
+        base64Data = base64Image.split(',')[1];
+      }
       
-      // We use the local Wi-Fi IP because LocalTunnel rejects large mobile camera images (413 Payload Too Large)
-      const apiUrl = 'https://bhavya0520-pdd-backend.hf.space/analyze';
+      const apiUrl = getBackendUrl();
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -176,25 +234,49 @@ export default function UploadAnalysis({ onNavigate }) {
   };
 
   const handleSaveReport = async () => {
-    if (!analysisResults || !selectedPatientId) return;
-    
+    if (!analysisResults) return;
+
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
-      
+
+      // If doctor entered a patient email, look up their auth_patient_id
+      let authPatientId = null;
+      if (userRole === 'doctor' && patientEmail.trim()) {
+        // Look up the patient by their email in auth.users via a profiles check
+        const { data: profileData, error: profileError } = await supabase
+          .from('clinical_patients')
+          .select('id')
+          .eq('email', patientEmail.trim().toLowerCase())
+          .eq('doctor_id', user.id)
+          .maybeSingle();
+
+        // Also try to find their Supabase auth ID by checking reports they may have
+        const { data: authData } = await supabase
+          .rpc('get_user_id_by_email', { email_input: patientEmail.trim().toLowerCase() })
+          .maybeSingle();
+
+        if (authData) {
+          authPatientId = authData.id;
+          setEmailLookupStatus('found');
+        } else {
+          setEmailLookupStatus('not_found');
+        }
+      }
+
       const { error } = await supabase
         .from('clinical_reports')
         .insert({
           patient_id: userRole === 'doctor' ? selectedPatientId : null,
-          auth_patient_id: userRole === 'patient' ? currentUser.id : null,
+          auth_patient_id: userRole === 'patient' ? currentUser.id : authPatientId,
           doctor_id: userRole === 'doctor' ? currentUser.id : null,
           gemini_report: analysisResults.geminiReport,
           diagnostics_summary: analysisResults.diagnosticsSummary
         });
 
       if (error) throw error;
-      
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
@@ -253,38 +335,68 @@ export default function UploadAnalysis({ onNavigate }) {
               <p className="text-muted">Please select a patient from the dropdown above to begin scanning.</p>
             </div>
           ) : !file ? (
-            <div 
-              className={`upload-zone ${isDragging ? 'dragging' : ''}`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <UploadCloud size={48} className="text-muted mb-4" />
-              <h3>Drag & Drop Image Here</h3>
-              <p className="text-muted">Supports JPG, PNG, DICOM (Max 50MB)</p>
-              <div className="divider">or</div>
-              <input type="file" id="file-upload" className="hidden-input" onChange={handleFileInput} accept="image/*" />
-              <label htmlFor="file-upload" className="btn btn-outline">
-                Browse Files
-              </label>
-            </div>
+            Capacitor.isNativePlatform() ? (
+              <div className="upload-zone native-upload-zone" style={{ padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', border: '2px dashed var(--color-border)', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.05)' }}>
+                <UploadCloud size={48} className="text-muted mb-4" />
+                <h3>Capture or Choose Image</h3>
+                <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Select an option below to analyze a dental scan.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%', maxWidth: '260px' }}>
+                  <button className="btn btn-primary" onClick={() => capturePhoto(CameraSource.Camera)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>
+                    <Camera size={18} /> Take Photo
+                  </button>
+                  <button className="btn btn-outline" onClick={() => capturePhoto(CameraSource.Photos)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>
+                    <ImageIcon size={18} /> Choose from Gallery
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div 
+                className={`upload-zone ${isDragging ? 'dragging' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <UploadCloud size={48} className="text-muted mb-4" />
+                <h3>Drag & Drop Image Here</h3>
+                <p className="text-muted">Supports JPG, PNG, DICOM (Max 50MB)</p>
+                <div className="divider">or</div>
+                <input type="file" id="file-upload" className="hidden-input" onChange={handleFileInput} accept="image/*" />
+                <label htmlFor="file-upload" className="btn btn-outline">
+                  Browse Files
+                </label>
+              </div>
+            )
           ) : (
-            <div className="image-preview-container">
+            <div className="image-preview-container" onClick={() => setSelectedFinding(null)}>
               <img src={file} alt="Scan preview" className="image-preview" />
               {status === 'scanning' && (
                 <div className="scanning-overlay">
                   <div className="scanner-line"></div>
                 </div>
               )}
-              {status === 'complete' && analysisResults?.findings.map(finding => (
-                <div 
-                  key={finding.id}
-                  className={`bounding-box ${finding.type.toLowerCase().includes('caries') ? 'box-caries' : 'box-plaque'}`} 
-                  style={{ top: `${finding.box.y}%`, left: `${finding.box.x}%`, width: `${finding.box.width}%`, height: `${finding.box.height}%` }}
-                >
-                  <span className="box-label">{finding.type} ({(finding.confidence * 100).toFixed(0)}%)</span>
-                </div>
-              ))}
+              {status === 'complete' && analysisResults?.findings.map(finding => {
+                const toothStatus = getToothStatus(finding.type);
+                const isSelected = selectedFinding?.id === finding.id;
+                return (
+                  <div
+                    key={finding.id}
+                    className={`bounding-box ${finding.type.toLowerCase().includes('caries') ? 'box-caries' : finding.type.toLowerCase().includes('missing') ? 'box-missing' : finding.type.toLowerCase() === 'tooth' ? 'box-tooth' : 'box-plaque'} ${isSelected ? 'box-selected' : ''}`}
+                    style={{ top: `${finding.box.y}%`, left: `${finding.box.x}%`, width: `${finding.box.width}%`, height: `${finding.box.height}%`, cursor: 'pointer' }}
+                    onClick={(e) => { e.stopPropagation(); setSelectedFinding(isSelected ? null : finding); }}
+                  >
+                    <span className="box-label">{finding.type} ({(finding.confidence * 100).toFixed(0)}%)</span>
+
+                    {isSelected && (
+                      <div className="tooth-status-popup" style={{ background: toothStatus.bg, border: `2px solid ${toothStatus.border}`, color: toothStatus.color }}>
+                        <div className="tooth-status-emoji">{toothStatus.emoji}</div>
+                        <div className="tooth-status-label">{toothStatus.label}</div>
+                        <div className="tooth-status-type">{finding.type}</div>
+                        <div className="tooth-status-conf">{(finding.confidence * 100).toFixed(0)}% confidence</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -302,7 +414,7 @@ export default function UploadAnalysis({ onNavigate }) {
             <div className="scanning-state glass-panel">
               <Loader2 size={48} className="spinner text-primary" style={{ transformOrigin: 'center' }} />
               <h3>Analyzing Scan...</h3>
-              <p className="text-muted">ProphyDent AI is detecting anomalies.</p>
+              <p className="text-muted">Smile Guard AI is detecting anomalies.</p>
               <div className="progress-bar-container">
                 <div className="progress-bar"></div>
               </div>
@@ -372,20 +484,58 @@ export default function UploadAnalysis({ onNavigate }) {
                 )}
               </div>
 
-              <button 
-                className={`btn w-full ${saveSuccess ? 'btn-outline' : 'btn-primary'}`} 
-                style={{ marginTop: '2rem' }}
-                onClick={handleSaveReport}
-                disabled={isSaving || saveSuccess}
-              >
-                {isSaving ? (
-                  <><Loader2 size={18} className="spinner mr-2" style={{ marginBottom: 0, transformOrigin: 'center' }} /> Saving...</>
-                ) : saveSuccess ? (
-                  <><CheckCircle size={18} className="mr-2" /> Saved Successfully!</>
-                ) : (
-                  'Save Clinical Report to Patient Profile'
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '2rem' }}>
+
+                {/* Doctor: Enter patient email to send report to their dashboard */}
+                {userRole === 'doctor' && (
+                  <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '1rem 1.2rem' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                      <span>📧</span> Send Report to Patient Dashboard
+                    </label>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.7rem' }}>Enter the patient's registered email to link this report to their account.</p>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="email"
+                        placeholder="patient@example.com"
+                        value={patientEmail}
+                        onChange={e => { setPatientEmail(e.target.value); setEmailLookupStatus(''); }}
+                        style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-main)', color: 'var(--color-text-main)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    {emailLookupStatus === 'found' && (
+                      <p style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#16a34a' }}>✅ Patient found! Report linked to their dashboard.</p>
+                    )}
+                    {emailLookupStatus === 'not_found' && (
+                      <p style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#d97706' }}>⚠️ No registered patient found with that email. Report saved without patient link.</p>
+                    )}
+                  </div>
                 )}
-              </button>
+
+                <button
+                  className={`btn w-full ${saveSuccess ? 'btn-outline' : 'btn-primary'}`}
+                  onClick={handleSaveReport}
+                  disabled={isSaving || saveSuccess}
+                >
+                  {isSaving ? (
+                    <><Loader2 size={18} className="spinner mr-2" style={{ marginBottom: 0, transformOrigin: 'center' }} /> Saving...</>
+                  ) : saveSuccess ? (
+                    <><CheckCircle size={18} className="mr-2" /> Saved Successfully!</>
+                  ) : (
+                    'Save Clinical Report to Patient Profile'
+                  )}
+                </button>
+                <button 
+                  className="btn btn-outline w-full" 
+                  onClick={() => {
+                    setFile(null);
+                    setStatus('idle');
+                    setAnalysisResults(null);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  <RotateCcw size={18} /> Scan Another Image
+                </button>
+              </div>
             </div>
           )}
         </div>

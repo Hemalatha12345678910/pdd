@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import './Dashboard.css';
 
 export default function Dashboard({ onNavigate }) {
-  const [profile, setProfile] = useState({ name: '', role: 'doctor' });
+  const [profile, setProfile] = useState({ name: '', role: 'patient' });
   const [loading, setLoading] = useState(true);
   const [recentScans, setRecentScans] = useState([]);
   const [dashboardStats, setDashboardStats] = useState({
@@ -19,7 +19,7 @@ export default function Dashboard({ onNavigate }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      const role = user.user_metadata?.role || 'doctor';
+      const role = user.user_metadata?.role || 'patient';
       const userName = user.user_metadata?.full_name || 'User';
 
       setProfile({

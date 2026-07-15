@@ -90,10 +90,24 @@
   border: 2px solid;
   border-radius: 4px;
   animation: pulseBox 2s infinite;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.box-caries { border-color: var(--color-danger); }
-.box-plaque { border-color: var(--color-warning); }
+.bounding-box:hover {
+  transform: scale(1.02);
+  z-index: 10;
+}
+
+.box-selected {
+  z-index: 20;
+  animation: none;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.6);
+}
+
+.box-caries { border-color: #dc2626; }
+.box-plaque { border-color: #d97706; }
+.box-tooth  { border-color: #16a34a; }
+.box-missing { border-color: #9ca3af; border-style: dashed; }
 
 .box-label {
   position: absolute;
@@ -107,9 +121,56 @@
   white-space: nowrap;
 }
 
-.box-caries .box-label { background-color: var(--color-danger); }
-.box-plaque .box-label { background-color: var(--color-warning); color: var(--color-text-main); }
+.box-caries .box-label { background-color: #dc2626; }
+.box-plaque .box-label { background-color: #d97706; color: #1a1a1a; }
+.box-tooth  .box-label { background-color: #16a34a; }
+.box-missing .box-label { background-color: #6b7280; }
 .text-dark { color: #000 !important; }
+
+/* Status Popup */
+.tooth-status-popup {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 12px;
+  padding: 10px 14px;
+  min-width: 150px;
+  text-align: center;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  animation: popupIn 0.2s ease;
+  pointer-events: none;
+}
+
+@keyframes popupIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+}
+
+.tooth-status-emoji {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+
+.tooth-status-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.tooth-status-type {
+  font-size: 0.72rem;
+  opacity: 0.75;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.tooth-status-conf {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-top: 2px;
+}
 
 @keyframes pulseBox {
   0% { box-shadow: 0 0 0 0 rgba(0,0,0, 0.4); }
