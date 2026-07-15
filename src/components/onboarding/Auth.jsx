@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import Logo from '../layout/Logo';
 import './Onboarding.css';
 
 export default function Auth() {
@@ -115,9 +116,9 @@ export default function Auth() {
           <ArrowLeft size={24} />
         </button>
         
-        <div className="auth-header">
-          <img src="./logo.png" alt="Logo" className="small-logo" />
-          <h2>{isLogin ? 'Welcome Back' : 'Create an Account'}</h2>
+        <div className="auth-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Logo size={44} className="small-logo" />
+          <h2 style={{ marginTop: '0.8rem' }}>{isLogin ? 'Welcome Back' : 'Create an Account'}</h2>
           <p className="text-muted">
             {role === 'doctor' ? 'Clinical Portal' : 'Patient Portal'}
           </p>

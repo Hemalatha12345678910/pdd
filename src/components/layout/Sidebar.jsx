@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Activity, Users, Settings, Image as ImageIcon, Home, LogOut, ClipboardList } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import Logo from './Logo';
 import './Sidebar.css';
 
 const navItems = [
@@ -41,7 +42,7 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="logo">
-          <img src="./logo.png" alt="Smile Guard AI" className="logo-img" />
+          <Logo size={32} />
           <h2 className="logo-text">Smile Guard AI</h2>
         </div>
         <span className="ai-badge">AI</span>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Stethoscope, User } from 'lucide-react';
+import Logo from '../layout/Logo';
 import './Onboarding.css';
 
 export default function RoleSelection() {
@@ -12,8 +13,8 @@ export default function RoleSelection() {
 
   return (
     <div className="onboarding-screen">
-      <div className="role-content fade-in">
-        <img src="./logo.png" alt="Logo" className="small-logo mb-6" />
+      <div className="role-content fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Logo size={50} className="small-logo mb-6" />
         <h2>How will you be using Smile Guard AI?</h2>
         <p className="text-muted mb-8">Select your role to customize your experience.</p>
         
