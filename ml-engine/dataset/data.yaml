@@ -1,0 +1,15 @@
+names:
+- Caries
+- Cavity
+- Crack
+- Tooth
+nc: 4
+roboflow:
+  license: CC BY 4.0
+  project: dental-caries-k6zz1
+  url: https://universe.roboflow.com/dental-caries-ywg6c/dental-caries-k6zz1/dataset/1
+  version: 1
+  workspace: dental-caries-ywg6c
+test: ../test/images
+train: ../train/images
+val: ../valid/images

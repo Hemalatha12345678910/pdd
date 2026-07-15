@@ -1,0 +1,17 @@
+# YOLOv8 Dataset Configuration File
+# ---------------------------------------------------------
+# UPDATE THESE PATHS once you download or create your dataset.
+# The paths should point to the folders containing your images and labels.
+
+path: ./dataset  # root directory of your dataset
+train: images/train  # training images (relative to 'path')
+val: images/val      # validation images (relative to 'path')
+test: images/test    # test images (optional)
+
+# Classes definition
+# These are the anomalies the AI will learn to detect.
+nc: 3
+names:
+  0: Caries
+  1: Plaque
+  2: Bone Loss
