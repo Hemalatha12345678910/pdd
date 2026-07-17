@@ -239,7 +239,10 @@ export default function UploadAnalysis({ onNavigate }) {
 
       const diagnosticsSummary = {};
       mappedAnomalies.forEach(anomaly => {
-        const key = typeof anomaly.assignedTooth === 'number' ? `Tooth #${anomaly.assignedTooth}` : anomaly.assignedTooth;
+        let key = typeof anomaly.assignedTooth === 'number' ? `Tooth #${anomaly.assignedTooth}` : anomaly.assignedTooth;
+        if (key === 'Unassigned Area') {
+          key = anomaly.type.charAt(0).toUpperCase() + anomaly.type.slice(1).replace('_', ' ');
+        }
         if (!diagnosticsSummary[key]) diagnosticsSummary[key] = [];
         diagnosticsSummary[key].push(anomaly);
       });
