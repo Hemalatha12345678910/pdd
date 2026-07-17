@@ -10,10 +10,14 @@ import './UploadAnalysis.css';
 
 const STATUS_MAP = {
   'tooth': { emoji: '🟢', label: 'Healthy', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
-  'caries': { emoji: '🔴', label: 'Requires Treatment', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
-  'cavity': { emoji: '🔴', label: 'Requires Treatment', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  'caries': { emoji: '🔴', label: 'Caries (Decay)', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  'cavity': { emoji: '🔴', label: 'Cavity (Decay)', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  'calculus': { emoji: '🟡', label: 'Calculus (Tartar)', color: '#d97706', bg: '#fef9c3', border: '#fde047' },
+  'gingivitis': { emoji: '🔴', label: 'Gingivitis (Gums)', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  'hypodontia': { emoji: '⚪', label: 'Hypodontia (Missing)', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db' },
+  'ulcer': { emoji: '🔴', label: 'Mouth Ulcer', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
   'gum swelling': { emoji: '🟡', label: 'Needs Monitoring', color: '#d97706', bg: '#fef9c3', border: '#fde047' },
-  'tooth_discolation': { emoji: '🟡', label: 'Needs Monitoring', color: '#d97706', bg: '#fef9c3', border: '#fde047' },
+  'tooth_discolation': { emoji: '🟡', label: 'Tooth Discoloration', color: '#d97706', bg: '#fef9c3', border: '#fde047' },
   'missing-tooth': { emoji: '⚪', label: 'Missing Tooth', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db' },
   'treated': { emoji: '🔵', label: 'Treated', color: '#2563eb', bg: '#dbeafe', border: '#93c5fd' },
 };
@@ -125,10 +129,14 @@ export default function UploadAnalysis({ onNavigate }) {
   };
 
   const handleFile = (uploadedFile) => {
+    if (!uploadedFile) return;
     const reader = new FileReader();
     reader.onload = (e) => {
-      setFile(e.target.result);
-      handleAnalyze(uploadedFile);
+      const result = e.target.result;
+      if (result) {
+        setFile(result);
+        handleAnalyze(uploadedFile);
+      }
     };
     reader.readAsDataURL(uploadedFile);
   };

@@ -1,4 +1,4 @@
-.splash-screen, .onboarding-screen {
+.splash-screen {
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -7,6 +7,21 @@
   background-color: var(--color-bg-main);
   color: var(--color-text-main);
   text-align: center;
+}
+
+.onboarding-screen {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg-main);
+  color: var(--color-text-main);
+  text-align: center;
+  overflow-y: auto;
+  padding: 2rem 0;
+  box-sizing: border-box;
 }
 
 .splash-content {

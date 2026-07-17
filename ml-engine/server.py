@@ -1,9 +1,14 @@
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from ultralytics import YOLO
 import base64
 import io
 import os
+import cv2
+import numpy as np
 from PIL import Image
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -13,8 +18,8 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY and GEMINI_API_KEY != "PASTE_YOUR_API_KEY_HERE":
     genai.configure(api_key=GEMINI_API_KEY)
-    # Using the Gemini 2.5 Flash multimodal model (Free Tier Compatible)
-    gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+    # Using the Gemini 3.5 Flash multimodal model (Free Tier Compatible)
+    gemini_model = genai.GenerativeModel('gemini-3.5-flash')
 else:
     gemini_model = None
     print("⚠️ Warning: Gemini API Key not found in .env! Medical Reports will be disabled.")
@@ -48,6 +53,11 @@ else:
 
 app = Flask(__name__)
 CORS(app) # Allow React to talk to this server
+
+@app.route('/', methods=['GET'])
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok", "message": "ProphyDent AI Server is running!"}), 200
 
 def generate_fallback_report(predictions, role):
     """Generate a structured report from YOLO detections when Gemini is unavailable."""
@@ -93,21 +103,25 @@ def generate_fallback_report(predictions, role):
     return report
 
 
-# Load ALL 5 models!
-MODEL_PATHS = ['best (1).pt', 'best (2).pt', 'best (3).pt', 'best (4).pt', 'best (5).pt']
-models = []
-for path in MODEL_PATHS:
-    try:
-        model = YOLO(path)
-        models.append(model)
-        print(f"✅ Successfully loaded {path}")
-    except Exception as e:
-        print(f"⚠️ Warning: Could not load {path}. Make sure it is inside the ml-engine folder! Error: {e}")
+# Global model cache for lazy loading
+loaded_model = None
+
+def get_yolo_model():
+    global loaded_model
+    if loaded_model is None:
+        try:
+            print("🚀 Lazily loading YOLO model best (5).onnx...")
+            loaded_model = cv2.dnn.readNetFromONNX('best (5).onnx')
+            print("✅ YOLO model loaded successfully!")
+        except Exception as e:
+            print(f"❌ Error loading YOLO model: {e}")
+    return loaded_model
 
 @app.route('/analyze', methods=['POST'])
 def analyze_image():
-    if not models:
-        return jsonify({"error": "No models loaded on the server. Please check the terminal!"}), 500
+    net = get_yolo_model()
+    if not net:
+        return jsonify({"error": "Failed to load YOLO model on the server."}), 500
 
     try:
         # Get JSON from React
@@ -124,25 +138,54 @@ def analyze_image():
         # Format results exactly how the React app expects them
         predictions = []
         
-        # Run YOLO inference for EVERY model and combine the results!
-        for model in models:
-            results = model(image)
-            for r in results:
-                boxes = r.boxes
-                for box in boxes:
-                    # get box coordinates in center x, center y, width, height format
-                    xywh = box.xywh[0].tolist() 
-                    conf = float(box.conf[0])
-                    cls = int(box.cls[0])
-                    class_name = model.names[cls]
+        # Convert PIL Image to OpenCV BGR format
+        open_cv_image = np.array(image)
+        open_cv_image = open_cv_image[:, :, ::-1].copy() # Convert RGB to BGR
+        
+        # Run YOLO inference using OpenCV DNN
+        blob = cv2.dnn.blobFromImage(open_cv_image, 1.0/255.0, (640, 640), swapRB=True, crop=False)
+        net.setInput(blob)
+        output = net.forward()
+        output = np.squeeze(output)
+        
+        # YOLOv8 output is shape (8, 8400) for 4 classes + 4 box coords
+        if len(output.shape) == 2:
+            output = output.T # Transpose to shape (8400, 8)
+            
+            boxes = []
+            confidences = []
+            class_ids = []
+            classes = ['calculus', 'caries', 'gingivitis', 'hypodontia', 'tooth_discolation', 'ulcer']
+            
+            for row in output:
+                scores = row[4:]
+                class_id = np.argmax(scores)
+                confidence = scores[class_id]
+                if confidence >= 0.25:
+                    cx, cy, w, h = row[:4]
                     
+                    # Convert center x/y and width/height from 640x640 space to original image size
+                    x = int((cx - w/2) * (width / 640.0))
+                    y = int((cy - h/2) * (height / 640.0))
+                    box_w = int(w * (width / 640.0))
+                    box_h = int(h * (height / 640.0))
+                    
+                    boxes.append([x, y, box_w, box_h])
+                    confidences.append(float(confidence))
+                    class_ids.append(class_id)
+            
+            indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.25, 0.45)
+            if len(indices) > 0:
+                flat_indices = indices.flatten() if hasattr(indices, 'flatten') else [i[0] for i in indices] if isinstance(indices[0], list) or isinstance(indices[0], np.ndarray) else indices
+                for i in flat_indices:
+                    x, y, box_w, box_h = boxes[i]
                     predictions.append({
-                        "class": class_name,
-                        "confidence": conf,
-                        "x": xywh[0],
-                        "y": xywh[1],
-                        "width": xywh[2],
-                        "height": xywh[3]
+                        "class": classes[class_ids[i]],
+                        "confidence": confidences[i],
+                        "x": x + box_w/2,  # React expects center x
+                        "y": y + box_h/2,  # React expects center y
+                        "width": box_w,
+                        "height": box_h
                     })
                     
         # --- PRIMARY ANALYSIS (OpenAI / Gemini) ---
@@ -172,93 +215,18 @@ def analyze_image():
             CRITICAL INSTRUCTION: You MUST end your response immediately after the preventive plan. DO NOT include ANY sign-offs, signatures, or closing remarks whatsoever (e.g. absolutely no "Sincerely," or "Chief Dental Officer").
             """
 
-        # Try Groq First if available
-        if groq_client:
+        # Try Gemini First (since it's currently our only active working API)
+        if gemini_model:
             try:
-                print(f"🧠 Asking Groq (llama-3.2-11b-vision-preview) to analyze the image for a {role}...")
-                response = groq_client.chat.completions.create(
-                    model="llama-3.2-11b-vision-preview",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{base64_data}"
-                                    }
-                                }
-                            ]
-                        }
-                    ]
+                print(f"🧠 Asking Gemini (gemini-3.5-flash) to analyze the image for a {role}...")
+                response = gemini_model.generate_content(
+                    [prompt, image],
+                    request_options={"timeout": 15}
                 )
-                gemini_report = response.choices[0].message.content.strip()
-                print("✅ Groq report generated!")
-            except Exception as e:
-                print(f"❌ Groq Analysis Error: {e}")
-
-        # Try Grok if Groq is not set up or failed
-        if not gemini_report and grok_client:
-            try:
-                print(f"🧠 Asking Grok (grok-2-vision-beta) to analyze the image for a {role}...")
-                response = grok_client.chat.completions.create(
-                    model="grok-2-vision-beta",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{base64_data}"
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                )
-                gemini_report = response.choices[0].message.content.strip()
-                print("✅ Grok report generated!")
-            except Exception as e:
-                print(f"❌ Grok Analysis Error: {e}")
-
-        # Try OpenAI if Grok is not set up or failed
-        if not gemini_report and openai_client:
-            try:
-                print(f"🧠 Asking OpenAI (gpt-4o-mini) to analyze the image for a {role}...")
-                response = openai_client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{base64_data}"
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                )
-                gemini_report = response.choices[0].message.content.strip()
-                print("✅ OpenAI report generated!")
-            except Exception as e:
-                print(f"❌ OpenAI Analysis Error: {e}")
-                
-        # Try Gemini if OpenAI is not set up or failed
-        if not gemini_report and gemini_model:
-            try:
-                print(f"🧠 Asking Gemini to analyze the image for a {role}...")
-                response = gemini_model.generate_content([prompt, image])
                 gemini_report = response.text
                 print("✅ Gemini report generated!")
             except Exception as e:
-                print(f"❌ Gemini Analysis Error: {e}")
+                print(f"❌ Gemini Analysis Error (falling back): {e}")
 
         # Post-process report string formatting
         if gemini_report:
@@ -268,7 +236,7 @@ def analyze_image():
             if "Chief Dental Officer" in gemini_report:
                 gemini_report = gemini_report.replace("Chief Dental Officer", "").strip()
         else:
-            # Generate a smart fallback report from YOLO detections if both models failed
+            # Generate a smart fallback report from YOLO detections if Gemini failed/timed out
             print("⚠️ Using YOLO local detections fallback report.")
             gemini_report = generate_fallback_report(predictions, role)
 

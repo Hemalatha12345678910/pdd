@@ -15,5 +15,5 @@ COPY . .
 # Hugging Face Spaces requires the app to listen on port 7860
 EXPOSE 7860
 
-# Start the Flask app using Gunicorn on port 7860
-CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--timeout", "120", "server:app"]
+# Start the Flask app using Gunicorn on the port specified by the environment variable
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-7860} --timeout 120 server:app"]
