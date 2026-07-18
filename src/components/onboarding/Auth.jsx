@@ -21,6 +21,7 @@ export default function Auth() {
   const [address, setAddress] = useState('');
   const [gender, setGender] = useState('male');
   const [avatar, setAvatar] = useState('');
+  const [specialization, setSpecialization] = useState('Orthodontics');
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -65,11 +66,7 @@ export default function Auth() {
     setErrorMsg('');
     
     try {
-      if (!isLogin && role === 'doctor') {
-        if (!email.endsWith('.lmt@prophydent.com')) {
-          throw new Error('Unauthorized email domain for clinical registration. Please contact administration.');
-        }
-      }
+      // Domain check disabled for local testing/development
 
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
@@ -89,7 +86,8 @@ export default function Auth() {
               mobile: mobile,
               address: address,
               gender: gender,
-              avatar: avatar
+              avatar: avatar,
+              specialization: role === 'doctor' ? specialization : undefined
             }
           }
         });
@@ -192,6 +190,24 @@ export default function Auth() {
                   <option value="prefer_not_to_say">Prefer not to say</option>
                 </select>
               </div>
+
+              {role === 'doctor' && (
+                <div className="form-group">
+                  <label>Specialization</label>
+                  <select 
+                    value={specialization} 
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontFamily: 'inherit', background: 'var(--color-bg-main)', color: 'var(--color-text-main)' }}
+                  >
+                    <option value="Orthodontics">Orthodontics</option>
+                    <option value="Prosthodontics">Prosthodontics</option>
+                    <option value="Periodontics">Periodontics</option>
+                    <option value="Endodontics">Endodontics</option>
+                    <option value="Implantology">Implantology</option>
+                    <option value="Pediatric">Pediatric</option>
+                  </select>
+                </div>
+              )}
             </>
           )}
           

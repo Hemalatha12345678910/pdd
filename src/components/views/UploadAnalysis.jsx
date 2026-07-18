@@ -46,6 +46,58 @@ export default function UploadAnalysis({ onNavigate }) {
   const [emailLookupStatus, setEmailLookupStatus] = useState(''); // '', 'found', 'not_found'
   const [userRole, setUserRole] = useState('doctor');
   const [currentUser, setCurrentUser] = useState(null);
+  const [selectedSpecialty, setSelectedSpecialty] = useState('Orthodontics');
+  const [recommendedSpecialty, setRecommendedSpecialty] = useState('Orthodontics');
+  const [doctors, setDoctors] = useState([]);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+
+  const specialtiesList = [
+    { name: 'Orthodontics', desc: 'Braces and structural alignment', action: 'View Plans', badge: 'ACTIVE' },
+    { name: 'Prosthodontics', desc: 'Restoration and replacement', action: 'Learn More', badge: null },
+    { name: 'Periodontics', desc: 'Gum health and surgeries', action: 'Details', badge: null },
+    { name: 'Endodontics', desc: 'Root canal specialist care', action: 'Book Now', badge: 'URGENT' },
+    { name: 'Implantology', desc: 'Titanium dental implants', action: 'See Pricing', badge: null },
+    { name: 'Pediatric', desc: 'Specialized care for children', action: 'Meet Doctors', badge: null }
+  ];
+
+  const getRecommendedSpecialty = (diagnostics) => {
+    if (!diagnostics) return 'Orthodontics';
+    const valuesStr = JSON.stringify(diagnostics).toLowerCase();
+
+    if (valuesStr.includes('caries') || valuesStr.includes('cavity') || valuesStr.includes('pulp')) {
+      return 'Endodontics';
+    }
+    if (valuesStr.includes('gum') || valuesStr.includes('plaque') || valuesStr.includes('gingivitis') || valuesStr.includes('inflammation') || valuesStr.includes('periodon')) {
+      return 'Periodontics';
+    }
+    if (valuesStr.includes('missing')) {
+      return 'Implantology';
+    }
+    if (valuesStr.includes('crowd') || valuesStr.includes('align') || valuesStr.includes('spacing')) {
+      return 'Orthodontics';
+    }
+    return 'Prosthodontics';
+  };
+
+  const fetchDoctorsForSpecialty = async (specialty) => {
+    setLoadingDoctors(true);
+    try {
+      const { data, error } = await supabase
+        .from('clinical_patients')
+        .select('*')
+        .like('patient_id', 'DOCTOR_PROFILE_%')
+        .eq('medical_history', specialty);
+
+      if (error) throw error;
+      setDoctors(data || []);
+      setSelectedDoctor(null);
+    } catch (err) {
+      console.error("Error fetching doctors:", err);
+    } finally {
+      setLoadingDoctors(false);
+    }
+  };
 
   const capturePhoto = async (source) => {
     try {
@@ -252,6 +304,10 @@ export default function UploadAnalysis({ onNavigate }) {
         diagnosticsSummary: diagnosticsSummary,
         geminiReport: data.gemini_report
       });
+      const recommendedSpec = getRecommendedSpecialty(diagnosticsSummary);
+      setRecommendedSpecialty(recommendedSpec);
+      setSelectedSpecialty(recommendedSpec);
+      fetchDoctorsForSpecialty(recommendedSpec);
       setStatus('complete');
     } catch (error) {
       console.error("Analysis failed:", error);
@@ -268,11 +324,62 @@ export default function UploadAnalysis({ onNavigate }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      let finalDoctorId = null;
+      let finalPatientDbId = null;
+
+      if (userRole === 'patient' && selectedDoctor) {
+        finalDoctorId = selectedDoctor.doctor_id;
+
+        try {
+          // Check if patient is already in the doctor's roster
+          const { data: existingPatient } = await supabase
+            .from('clinical_patients')
+            .select('id')
+            .eq('doctor_id', finalDoctorId)
+            .eq('email', user.email.toLowerCase())
+            .maybeSingle();
+
+          if (existingPatient) {
+            finalPatientDbId = existingPatient.id;
+          } else {
+            // Generate a patient ID format matching PID-year-rand
+            const year = new Date().getFullYear();
+            const rand = Math.floor(1000 + Math.random() * 9000);
+            const patientId = `PID-${year}-${rand}`;
+
+            const { data: newPatient, error: patientError } = await supabase
+              .from('clinical_patients')
+              .insert([
+                {
+                  doctor_id: finalDoctorId,
+                  patient_id: patientId,
+                  full_name: user.user_metadata?.full_name || 'Patient',
+                  dob: user.user_metadata?.dob || '2000-01-01',
+                  email: user.email,
+                  phone: user.user_metadata?.mobile || '',
+                  medical_history: `Registered via AI Scan referral. Specialty needed: ${selectedSpecialty}`,
+                  status: 'Active'
+                }
+              ])
+              .select()
+              .single();
+
+            if (patientError) {
+              console.warn("Could not register patient on doctor roster (RLS restricted), saving report directly:", patientError.message);
+            } else if (newPatient) {
+              finalPatientDbId = newPatient.id;
+            }
+          }
+        } catch (rosterErr) {
+          console.warn("Roster sync failed (RLS restricted), proceeding to save report directly:", rosterErr);
+        }
+      }
+
       // If doctor entered a patient email, look up their auth_patient_id
       let authPatientId = null;
       if (userRole === 'doctor' && patientEmail.trim()) {
         // Look up the patient by their email in auth.users via a profiles check
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profileData } = await supabase
           .from('clinical_patients')
           .select('id')
           .eq('email', patientEmail.trim().toLowerCase())
@@ -292,14 +399,23 @@ export default function UploadAnalysis({ onNavigate }) {
         }
       }
 
+      // Inject patient name & email into diagnostics_summary JSON payload as a fallback metadata
+      const diagnosticsSummaryWithMeta = {
+        ...(analysisResults.diagnosticsSummary || {}),
+        patient_info: {
+          full_name: currentUser?.user_metadata?.full_name || user?.user_metadata?.full_name || 'Patient',
+          email: currentUser?.email || user?.email || ''
+        }
+      };
+
       const { error } = await supabase
         .from('clinical_reports')
         .insert({
-          patient_id: userRole === 'doctor' ? selectedPatientId : null,
+          patient_id: userRole === 'doctor' ? selectedPatientId : finalPatientDbId,
           auth_patient_id: userRole === 'patient' ? currentUser.id : authPatientId,
-          doctor_id: userRole === 'doctor' ? currentUser.id : null,
+          doctor_id: userRole === 'doctor' ? currentUser.id : finalDoctorId,
           gemini_report: analysisResults.geminiReport,
-          diagnostics_summary: analysisResults.diagnosticsSummary
+          diagnostics_summary: diagnosticsSummaryWithMeta
         });
 
       if (error) throw error;
@@ -308,7 +424,7 @@ export default function UploadAnalysis({ onNavigate }) {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Failed to save report:", error);
-      alert(`Failed to save report. Error: ${error.message || "Unknown error"}. Did you run the SQL script?`);
+      alert(`Failed to save report. Error: ${error.message || "Unknown error"}.`);
     } finally {
       setIsSaving(false);
     }
@@ -551,6 +667,133 @@ export default function UploadAnalysis({ onNavigate }) {
                   </div>
                 )}
 
+                {userRole === 'patient' && (
+                  <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '1.25rem', marginTop: '1rem', textAlign: 'left' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      🩺 Recommended Specialist Care
+                    </h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+                      Based on our AI findings, we recommend consulting a specialist. Select a category below to meet our registered doctors:
+                    </p>
+
+                    {/* Specialties Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.8rem', marginBottom: '1.5rem' }}>
+                      {specialtiesList.map((spec) => {
+                        const isRecommended = spec.name === recommendedSpecialty;
+                        const isSelected = spec.name === selectedSpecialty;
+
+                        return (
+                          <div
+                            key={spec.name}
+                            onClick={() => {
+                              setSelectedSpecialty(spec.name);
+                              fetchDoctorsForSpecialty(spec.name);
+                            }}
+                            style={{
+                              border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                              borderRadius: '10px',
+                              padding: '0.8rem',
+                              cursor: 'pointer',
+                              background: isSelected ? 'rgba(59, 130, 246, 0.05)' : 'var(--color-bg-main)',
+                              position: 'relative',
+                              transition: 'all 0.2s ease',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                              boxShadow: isSelected ? '0 4px 12px rgba(59, 130, 246, 0.1)' : 'none'
+                            }}
+                          >
+                            {isRecommended && (
+                              <span style={{
+                                position: 'absolute',
+                                top: '-8px',
+                                right: '6px',
+                                fontSize: '0.62rem',
+                                color: '#ffffff',
+                                background: '#eab308',
+                                padding: '0.15rem 0.4rem',
+                                borderRadius: '4px',
+                                fontWeight: '800',
+                                letterSpacing: '0.02em',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              }}>
+                                RECOMMENDED
+                              </span>
+                            )}
+                            <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--color-text-main)', marginTop: '0.2rem' }}>
+                              {spec.name}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.4rem', lineHeight: '1.2' }}>
+                              {spec.desc}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Doctors List for Selected Specialty */}
+                    <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.2rem' }}>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '0.6rem' }}>
+                        Registered Specialists: {selectedSpecialty}
+                      </h4>
+                      {loadingDoctors ? (
+                        <div style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                          <Loader2 size={18} className="spinner" />
+                          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Searching registered specialists...</span>
+                        </div>
+                      ) : doctors.length === 0 ? (
+                        <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.8rem', fontSize: '0.82rem', color: '#b45309', textAlign: 'center' }}>
+                          No dentists in our network have registered under **{selectedSpecialty}** yet. You can save this report to your profile or choose another specialty.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                          {doctors.map((doc) => {
+                            const isDocSelected = selectedDoctor?.id === doc.id;
+                            return (
+                              <div
+                                key={doc.id}
+                                onClick={() => setSelectedDoctor(isDocSelected ? null : doc)}
+                                style={{
+                                  border: isDocSelected ? '2px solid var(--color-success)' : '1px solid var(--color-border)',
+                                  borderRadius: '8px',
+                                  padding: '0.8rem 1rem',
+                                  cursor: 'pointer',
+                                  background: isDocSelected ? 'rgba(16, 185, 129, 0.05)' : 'var(--color-bg-main)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontWeight: '700', fontSize: '0.88rem', color: 'var(--color-text-main)' }}>
+                                    {doc.full_name}
+                                  </div>
+                                  <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+                                    📧 {doc.email} {doc.phone ? `| 📞 ${doc.phone}` : ''}
+                                  </div>
+                                </div>
+                                <div style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  border: `2px solid ${isDocSelected ? 'var(--color-success)' : 'var(--color-border)'}`,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  background: isDocSelected ? 'var(--color-success)' : 'transparent'
+                                }}>
+                                  {isDocSelected && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffffff' }} />}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <button
                   className={`btn w-full ${saveSuccess ? 'btn-outline' : 'btn-primary'}`}
                   onClick={handleSaveReport}
@@ -561,7 +804,9 @@ export default function UploadAnalysis({ onNavigate }) {
                   ) : saveSuccess ? (
                     <><CheckCircle size={18} className="mr-2" /> Saved Successfully!</>
                   ) : (
-                    'Save Clinical Report to Patient Profile'
+                    userRole === 'patient'
+                      ? (selectedDoctor ? `Save & Share with ${selectedDoctor.full_name}` : 'Save Clinical Report to Profile')
+                      : 'Save Clinical Report to Patient Profile'
                   )}
                 </button>
                 <button 

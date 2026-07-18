@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Circle, Loader2, Clock, Plus, Trash2, Save, FileText, Image, GitCompare, CalendarClock, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import './TreatmentPlan.css';
@@ -19,6 +20,7 @@ const DEFAULT_STAGES = [
 ];
 
 export default function TreatmentPlan() {
+  const navigate = useNavigate();
   const [role, setRole] = useState('patient');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,6 +39,7 @@ export default function TreatmentPlan() {
   const [progressPhotos, setProgressPhotos] = useState([]);
   const [newStageName, setNewStageName] = useState('');
   const [expandedSection, setExpandedSection] = useState('timeline');
+  const [patientAppointment, setPatientAppointment] = useState(null);
 
   useEffect(() => {
     init();
@@ -54,14 +57,45 @@ export default function TreatmentPlan() {
     } else {
       // Patient: load their plan
       loadPatientPlan(user.id);
+      loadPatientAppointment(user.email);
     }
     setLoading(false);
+  };
+
+  const loadPatientAppointment = async (email) => {
+    try {
+      const { data } = await supabase
+        .from('clinical_patients')
+        .select('*')
+        .eq('email', email.toLowerCase());
+
+      if (data) {
+        for (const rec of data) {
+          const match = rec.medical_history?.match(/\[APPOINTMENT\]:\s*(.*)/);
+          if (match) {
+            const { data: doc } = await supabase
+              .from('clinical_patients')
+              .select('full_name')
+              .eq('patient_id', `DOCTOR_PROFILE_${rec.doctor_id}`)
+              .maybeSingle();
+
+            setPatientAppointment({
+              time: match[1],
+              doctorName: doc?.full_name || 'Dentist'
+            });
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load patient appointment on treatment tab:", err);
+    }
   };
 
   const loadPatients = async (doctorId) => {
     const { data } = await supabase
       .from('clinical_patients')
-      .select('id, full_name, patient_id, email')
+      .select('id, full_name, patient_id, email, medical_history')
       .eq('doctor_id', doctorId)
       .order('full_name');
     setPatients(data || []);
@@ -109,7 +143,23 @@ export default function TreatmentPlan() {
   const handlePatientChange = (e) => {
     const id = e.target.value;
     setSelectedPatientId(id);
-    if (id) loadDoctorPlan(id);
+    if (id) {
+      const selectedPat = patients.find(p => p.id === id);
+      if (selectedPat) {
+        const apptMatch = selectedPat.medical_history?.match(/\[APPOINTMENT\]:\s*(.*)/);
+        if (apptMatch) {
+          setPatientAppointment({
+            time: apptMatch[1],
+            doctorName: 'You'
+          });
+        } else {
+          setPatientAppointment(null);
+        }
+      }
+      loadDoctorPlan(id);
+    } else {
+      setPatientAppointment(null);
+    }
   };
 
   const handleStageStatusChange = (idx, newStatus) => {
@@ -214,181 +264,288 @@ export default function TreatmentPlan() {
       )}
 
       {(selectedPatientId || role === 'patient') && (
-        <>
-          {/* Progress bar */}
-          <div className="card mb-4" style={{ padding: '1.2rem 1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span style={{ fontWeight: 600 }}>Overall Progress</span>
-              <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{progress}%</span>
-            </div>
-            <div className="tp-progress-bar-bg">
-              <div className="tp-progress-bar-fill" style={{ width: `${progress}%` }} />
-            </div>
-            <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>{completedCount} of {stages.length} stages completed</p>
-          </div>
-
-          {/* Timeline Section */}
-          <div className="card mb-4">
-            <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'timeline' ? '' : 'timeline')}>
-              <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Clock size={18} /> Treatment Timeline</span>
-              {expandedSection === 'timeline' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', width: '100%', alignItems: 'start' }}>
+          {/* Left Column - Core Timeline & Notes */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {/* Progress bar */}
+            <div className="card mb-4" style={{ padding: '1.2rem 1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ fontWeight: 600 }}>Overall Progress</span>
+                <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{progress}%</span>
+              </div>
+              <div className="tp-progress-bar-bg">
+                <div className="tp-progress-bar-fill" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>{completedCount} of {stages.length} stages completed</p>
             </div>
 
-            {expandedSection === 'timeline' && (
-              <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                <div className="timeline-list">
-                  {stages.map((stage, idx) => (
-                    <div key={idx} className={`timeline-item status-${stage.status}`}>
-                      <div className="timeline-icon">
-                        {stage.status === 'done' ? <CheckCircle2 size={22} color="#16a34a" fill="#dcfce7" /> :
-                         stage.status === 'current' ? <Loader2 size={22} color="#2563eb" className="spinner-slow" /> :
-                         <Circle size={22} color="#d1d5db" />}
-                      </div>
-                      <div className="timeline-content">
-                        <span className="timeline-label">{stage.name}</span>
-                        {stage.status === 'current' && <span className="current-badge">Current</span>}
-                      </div>
-                      {role === 'doctor' && (
-                        <div className="timeline-actions">
-                          <select
-                            value={stage.status}
-                            onChange={e => handleStageStatusChange(idx, e.target.value)}
-                            className="stage-select"
-                          >
-                            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
-                          <button className="btn-icon text-danger" onClick={() => handleRemoveStage(idx)} title="Remove">
-                            <Trash2 size={15} />
-                          </button>
+            {/* Timeline Section */}
+            <div className="card mb-4">
+              <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'timeline' ? '' : 'timeline')}>
+                <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Clock size={18} /> Treatment Timeline</span>
+                {expandedSection === 'timeline' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </div>
+
+              {expandedSection === 'timeline' && (
+                <div style={{ padding: '0 1.5rem 1.5rem' }}>
+                  <div className="timeline-list">
+                    {stages.map((stage, idx) => (
+                      <div key={idx} className={`timeline-item status-${stage.status}`}>
+                        <div className="timeline-icon">
+                          {stage.status === 'done' ? <CheckCircle2 size={22} color="#16a34a" fill="#dcfce7" /> :
+                           stage.status === 'current' ? <Loader2 size={22} color="#2563eb" className="spinner-slow" /> :
+                           <Circle size={22} color="#d1d5db" />}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Doctor: Add custom stage */}
-                {role === 'doctor' && (
-                  <div className="add-stage-row">
-                    <input
-                      type="text"
-                      placeholder="Add custom stage..."
-                      value={newStageName}
-                      onChange={e => setNewStageName(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddStage()}
-                      className="stage-input"
-                    />
-                    <button className="btn btn-outline" onClick={handleAddStage} style={{ whiteSpace: 'nowrap' }}>
-                      <Plus size={16} /> Add Stage
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Clinical Notes */}
-          <div className="card mb-4">
-            <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'notes' ? '' : 'notes')}>
-              <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FileText size={18} /> Clinical Notes</span>
-              {expandedSection === 'notes' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </div>
-            {expandedSection === 'notes' && (
-              <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                {role === 'doctor' ? (
-                  <textarea
-                    rows={5}
-                    className="plan-textarea"
-                    placeholder="Enter clinical observations, findings, and notes..."
-                    value={clinicalNotes}
-                    onChange={e => setClinicalNotes(e.target.value)}
-                  />
-                ) : (
-                  <div className="patient-notes-view">
-                    {clinicalNotes ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{clinicalNotes}</p> : <p className="text-muted">No clinical notes yet.</p>}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Upcoming Procedures */}
-          <div className="card mb-4">
-            <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'upcoming' ? '' : 'upcoming')}>
-              <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CalendarClock size={18} /> Upcoming Procedures</span>
-              {expandedSection === 'upcoming' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </div>
-            {expandedSection === 'upcoming' && (
-              <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                {role === 'doctor' ? (
-                  <textarea
-                    rows={4}
-                    className="plan-textarea"
-                    placeholder="List upcoming procedures, dates, and instructions..."
-                    value={upcomingProcedures}
-                    onChange={e => setUpcomingProcedures(e.target.value)}
-                  />
-                ) : (
-                  <div className="patient-notes-view">
-                    {upcomingProcedures ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{upcomingProcedures}</p> : <p className="text-muted">No upcoming procedures scheduled.</p>}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Progress Photos */}
-          <div className="card mb-4">
-            <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'photos' ? '' : 'photos')}>
-              <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Image size={18} /> Progress Photos</span>
-              {expandedSection === 'photos' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </div>
-            {expandedSection === 'photos' && (
-              <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                {role === 'doctor' && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label className="btn btn-outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Plus size={16} /> Upload Photo
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
-                    </label>
-                  </div>
-                )}
-                {progressPhotos.length === 0 ? (
-                  <p className="text-muted">No progress photos uploaded yet.</p>
-                ) : (
-                  <div className="photos-grid">
-                    {progressPhotos.map((photo, i) => (
-                      <div key={i} className="photo-card">
-                        <img src={photo.url} alt={photo.label} />
-                        <div className="photo-meta">
-                          <span>{photo.label}</span>
-                          <span className="text-muted" style={{ fontSize: '0.72rem' }}>{photo.date}</span>
+                        <div className="timeline-content">
+                          <span className="timeline-label">{stage.name}</span>
+                          {stage.status === 'current' && <span className="current-badge">Current</span>}
                         </div>
                         {role === 'doctor' && (
-                          <button className="photo-delete" onClick={() => setProgressPhotos(prev => prev.filter((_, j) => j !== i))}>
-                            <Trash2 size={13} />
-                          </button>
+                          <div className="timeline-actions">
+                            <select
+                              value={stage.status}
+                              onChange={e => handleStageStatusChange(idx, e.target.value)}
+                              className="stage-select"
+                            >
+                              {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                            <button className="btn-icon text-danger" onClick={() => handleRemoveStage(idx)} title="Remove">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         )}
                       </div>
                     ))}
                   </div>
-                )}
+
+                  {/* Doctor: Add custom stage */}
+                  {role === 'doctor' && (
+                    <div className="add-stage-row">
+                      <input
+                        type="text"
+                        placeholder="Add custom stage..."
+                        value={newStageName}
+                        onChange={e => setNewStageName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddStage()}
+                        className="stage-input"
+                      />
+                      <button className="btn btn-outline" onClick={handleAddStage} style={{ whiteSpace: 'nowrap' }}>
+                        <Plus size={16} /> Add Stage
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Clinical Notes */}
+            <div className="card mb-4">
+              <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'notes' ? '' : 'notes')}>
+                <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FileText size={18} /> Clinical Notes</span>
+                {expandedSection === 'notes' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </div>
-            )}
+              {expandedSection === 'notes' && (
+                <div style={{ padding: '0 1.5rem 1.5rem' }}>
+                  {role === 'doctor' ? (
+                    <textarea
+                      rows={5}
+                      className="plan-textarea"
+                      placeholder="Enter clinical observations, findings, and notes..."
+                      value={clinicalNotes}
+                      onChange={e => setClinicalNotes(e.target.value)}
+                    />
+                  ) : (
+                    <div className="patient-notes-view">
+                      {clinicalNotes ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{clinicalNotes}</p> : <p className="text-muted">No clinical notes yet.</p>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Progress Photos */}
+            <div className="card mb-4">
+              <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'photos' ? '' : 'photos')}>
+                <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Image size={18} /> Progress Photos</span>
+                {expandedSection === 'photos' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </div>
+              {expandedSection === 'photos' && (
+                <div style={{ padding: '0 1.5rem 1.5rem' }}>
+                  {role === 'doctor' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label className="btn btn-outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Plus size={16} /> Upload Photo
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
+                      </label>
+                    </div>
+                  )}
+                  {progressPhotos.length === 0 ? (
+                    <p className="text-muted">No progress photos uploaded yet.</p>
+                  ) : (
+                    <div className="photos-grid">
+                      {progressPhotos.map((photo, i) => (
+                        <div key={i} className="photo-card">
+                          <img src={photo.url} alt={photo.label} />
+                          <div className="photo-meta">
+                            <span>{photo.label}</span>
+                            <span className="text-muted" style={{ fontSize: '0.72rem' }}>{photo.date}</span>
+                          </div>
+                          {role === 'doctor' && (
+                            <button className="photo-delete" onClick={() => setProgressPhotos(prev => prev.filter((_, j) => j !== i))}>
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Scan Comparisons placeholder */}
-          <div className="card mb-4">
-            <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'scans' ? '' : 'scans')}>
-              <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><GitCompare size={18} /> Scan Comparisons</span>
-              {expandedSection === 'scans' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </div>
-            {expandedSection === 'scans' && (
-              <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                <p className="text-muted" style={{ fontSize: '0.85rem' }}>View your AI scan reports over time in the <strong>Reports</strong> section to compare progress between visits.</p>
-              </div>
+          {/* Right Column - Navigation & Appointments & Procedures */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {role === 'patient' && (
+              <>
+                {/* Specialty Navigation */}
+                <div className="card mb-4" style={{ padding: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '1.2rem', color: 'var(--color-text-main)', textAlign: 'left' }}>Specialty Navigation</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div 
+                      className="insight-item" 
+                      style={{ flexDirection: 'column', alignItems: 'center', padding: '1rem', gap: '0.5rem', cursor: 'pointer', background: 'rgba(255,255,255,0.4)', borderRadius: '12px' }}
+                      onClick={() => navigate('/analysis')}
+                    >
+                      <div style={{ color: '#f97316', fontSize: '1.5rem' }}>🦷</div>
+                      <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-main)' }}>Orthodontics</span>
+                    </div>
+                    <div 
+                      className="insight-item" 
+                      style={{ flexDirection: 'column', alignItems: 'center', padding: '1rem', gap: '0.5rem', cursor: 'pointer', background: 'rgba(255,255,255,0.4)', borderRadius: '12px' }}
+                      onClick={() => navigate('/analysis')}
+                    >
+                      <div style={{ color: '#f97316', fontSize: '1.5rem' }}>👑</div>
+                      <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-main)' }}>Prosthodontics</span>
+                    </div>
+                    <div 
+                      className="insight-item" 
+                      style={{ flexDirection: 'column', alignItems: 'center', padding: '1rem', gap: '0.5rem', cursor: 'pointer', background: 'rgba(255,255,255,0.4)', borderRadius: '12px' }}
+                      onClick={() => navigate('/analysis')}
+                    >
+                      <div style={{ color: '#f97316', fontSize: '1.5rem' }}>🩸</div>
+                      <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-main)' }}>Periodontics</span>
+                    </div>
+                    <div 
+                      className="insight-item" 
+                      style={{ flexDirection: 'column', alignItems: 'center', padding: '1rem', gap: '0.5rem', cursor: 'pointer', background: 'rgba(255,255,255,0.4)', borderRadius: '12px' }}
+                      onClick={() => navigate('/analysis')}
+                    >
+                      <div style={{ color: '#f97316', fontSize: '1.5rem' }}>👶</div>
+                      <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-main)' }}>Pediatrics</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Daily Reminders */}
+                <div className="card mb-4" style={{ padding: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '1.2rem', color: 'var(--color-text-main)', textAlign: 'left' }}>Daily Reminders</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    <div className="insight-item" style={{ gap: '1rem', padding: '0.8rem 1rem', borderRadius: '12px', background: 'rgba(255,255,255,0.4)', alignItems: 'center' }}>
+                      <div style={{ 
+                        width: '40px', 
+                        height: '40px', 
+                        borderRadius: '8px', 
+                        backgroundColor: 'rgba(59,130,246,0.1)', 
+                        color: 'var(--color-primary)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        fontSize: '1.2rem'
+                      }}>
+                        🪥
+                      </div>
+                      <div style={{ textAlign: 'left' }}>
+                        <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: '600', color: 'var(--color-text-main)' }}>Morning Brushing</h4>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>Scheduled for 8:00 AM</span>
+                      </div>
+                    </div>
+                    
+                    <div className="insight-item" style={{ gap: '1rem', padding: '0.8rem 1rem', borderRadius: '12px', background: 'rgba(255,255,255,0.4)', alignItems: 'center' }}>
+                      <div style={{ 
+                        width: '40px', 
+                        height: '40px', 
+                        borderRadius: '8px', 
+                        backgroundColor: 'rgba(249,115,22,0.1)', 
+                        color: '#f97316', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        fontSize: '1.2rem'
+                      }}>
+                        📅
+                      </div>
+                      <div style={{ textAlign: 'left' }}>
+                        <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: '600', color: 'var(--color-text-main)' }}>Follow-up Exam</h4>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>Tomorrow at 2:30 PM</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
+
+            {/* Upcoming Procedures */}
+            <div className="card mb-4">
+              <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'upcoming' ? '' : 'upcoming')}>
+                <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CalendarClock size={18} /> Upcoming Procedures</span>
+                {expandedSection === 'upcoming' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </div>
+              {expandedSection === 'upcoming' && (
+                <div style={{ padding: '0 1.5rem 1.5rem' }}>
+                  {patientAppointment && (
+                    <div className="glass-panel" style={{ padding: '0.8rem 1rem', background: 'rgba(59,130,246,0.05)', borderLeft: '3px solid var(--color-primary)', marginBottom: '1rem', textAlign: 'left', borderRadius: '6px' }}>
+                      <strong style={{ fontSize: '0.85rem', display: 'block', marginBottom: '0.2rem' }}>📅 Scheduled Appointment</strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--color-text-main)' }}>
+                        With **{patientAppointment.doctorName}** on **{patientAppointment.time}**
+                      </span>
+                    </div>
+                  )}
+                  {role === 'doctor' ? (
+                    <textarea
+                      rows={4}
+                      className="plan-textarea"
+                      placeholder="List upcoming procedures, dates, and instructions..."
+                      value={upcomingProcedures}
+                      onChange={e => setUpcomingProcedures(e.target.value)}
+                    />
+                  ) : (
+                    <div className="patient-notes-view">
+                      {upcomingProcedures ? (
+                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{upcomingProcedures}</p>
+                      ) : (
+                        !patientAppointment && <p className="text-muted">No upcoming procedures scheduled.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Scan Comparisons placeholder */}
+            <div className="card mb-4">
+              <div className="section-toggle" onClick={() => setExpandedSection(expandedSection === 'scans' ? '' : 'scans')}>
+                <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><GitCompare size={18} /> Scan Comparisons</span>
+                {expandedSection === 'scans' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </div>
+              {expandedSection === 'scans' && (
+                <div style={{ padding: '0 1.5rem 1.5rem' }}>
+                  <p className="text-muted" style={{ fontSize: '0.85rem' }}>View your AI scan reports over time in the <strong>Reports</strong> section to compare progress between visits.</p>
+                </div>
+              )}
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

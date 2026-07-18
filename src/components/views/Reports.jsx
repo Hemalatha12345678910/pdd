@@ -30,7 +30,7 @@ export default function Reports() {
       .from('clinical_reports')
       .select(`
         *,
-        clinical_patients(full_name)
+        clinical_patients(full_name, email)
       `)
       .order('created_at', { ascending: false });
 
@@ -53,6 +53,7 @@ export default function Reports() {
   const filteredReports = reports.filter(r => {
     if (userRole === 'patient') return new Date(r.created_at).toLocaleDateString().includes(searchTerm);
     return r.clinical_patients?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           r.clinical_patients?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
            new Date(r.created_at).toLocaleDateString().includes(searchTerm);
   });
 
@@ -93,7 +94,16 @@ export default function Reports() {
                   onClick={() => setSelectedReport(report)}
                 >
                   <div className="report-card-header">
-                    <h4>{userRole === 'patient' ? 'My Scan Result' : report.clinical_patients?.full_name || 'Unknown Patient'}</h4>
+                    <h4>
+                      {userRole === 'patient' 
+                        ? 'My Scan Result' 
+                        : (() => {
+                            const pName = report.clinical_patients?.full_name || report.diagnostics_summary?.patient_info?.full_name || 'Unknown Patient';
+                            const pEmail = report.clinical_patients?.email || report.diagnostics_summary?.patient_info?.email;
+                            return `${pName}${pEmail ? ` (${pEmail})` : ''}`;
+                          })()
+                      }
+                    </h4>
                     <span className="date-badge">
                       <Calendar size={14} />
                       {new Date(report.created_at).toLocaleDateString()}
@@ -114,7 +124,16 @@ export default function Reports() {
               <div className="viewer-header">
                 <div className="viewer-header-inner">
                   <div>
-                    <h2>{userRole === 'patient' ? 'Your AI Analysis Report' : selectedReport.clinical_patients?.full_name}</h2>
+                    <h2>
+                      {userRole === 'patient' 
+                        ? 'Your AI Analysis Report' 
+                        : (() => {
+                            const pName = selectedReport.clinical_patients?.full_name || selectedReport.diagnostics_summary?.patient_info?.full_name || 'Unknown Patient';
+                            const pEmail = selectedReport.clinical_patients?.email || selectedReport.diagnostics_summary?.patient_info?.email;
+                            return `${pName}${pEmail ? ` (${pEmail})` : ''}`;
+                          })()
+                      }
+                    </h2>
                     <div className="viewer-meta">
                       <span className="flex items-center gap-2"><Calendar size={16}/> {new Date(selectedReport.created_at).toLocaleString()}</span>
                       <span className="ai-badge" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', borderRadius: '4px', background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>AI Generated</span>

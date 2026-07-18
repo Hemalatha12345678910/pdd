@@ -23,10 +23,14 @@ export default function Sidebar() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
+        const role = user.user_metadata?.role || 'patient';
+        const specialization = user.user_metadata?.specialization || '';
         setProfile({
           name: user.user_metadata?.full_name || 'User',
-          role: user.user_metadata?.role || 'patient',
-          displayRole: user.user_metadata?.role === 'doctor' ? 'Dentist' : 'Patient',
+          role: role,
+          displayRole: role === 'doctor'
+            ? (specialization ? `Dentist (${specialization})` : 'Dentist')
+            : 'Patient',
           avatar: user.user_metadata?.avatar || null
         });
       }

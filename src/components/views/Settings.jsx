@@ -21,6 +21,7 @@ export default function Settings() {
   const [mobile, setMobile] = useState('');
   const [address, setAddress] = useState('');
   const [gender, setGender] = useState('male');
+  const [specialization, setSpecialization] = useState('Orthodontics');
   const [avatar, setAvatar] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
@@ -50,6 +51,7 @@ export default function Settings() {
         setMobile(user.user_metadata?.mobile || '');
         setAddress(user.user_metadata?.address || '');
         setGender(user.user_metadata?.gender || 'male');
+        setSpecialization(user.user_metadata?.specialization || 'Orthodontics');
         setAvatar(user.user_metadata?.avatar || '');
         setRole(user.user_metadata?.role || 'patient');
       }
@@ -120,11 +122,44 @@ export default function Settings() {
           mobile: mobile,
           address: address,
           gender: gender,
-          avatar: avatar
+          avatar: avatar,
+          specialization: role === 'doctor' ? specialization : undefined
         }
       });
 
       if (updateError) throw updateError;
+
+      // Sync doctor profile if role is doctor
+      if (role === 'doctor') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const uniquePatientId = `DOCTOR_PROFILE_${user.id}`;
+          const { data: existing } = await supabase
+            .from('clinical_patients')
+            .select('id')
+            .eq('doctor_id', user.id)
+            .eq('patient_id', uniquePatientId)
+            .maybeSingle();
+
+          const payload = {
+            doctor_id: user.id,
+            patient_id: uniquePatientId,
+            full_name: fullName.startsWith('Dr.') ? fullName : `Dr. ${fullName}`,
+            dob: '2000-01-01',
+            email: email,
+            phone: mobile,
+            medical_history: specialization,
+            status: 'Active'
+          };
+
+          if (existing) {
+            await supabase.from('clinical_patients').update(payload).eq('id', existing.id);
+          } else {
+            await supabase.from('clinical_patients').insert([payload]);
+          }
+        }
+      }
+
       setProfileMsg("Profile updated successfully!");
       setTimeout(() => setProfileMsg(''), 3000);
     } catch (err) {
@@ -229,6 +264,19 @@ export default function Settings() {
                     <option value="prefer_not_to_say">Prefer not to say</option>
                   </select>
                 </div>
+                {role === 'doctor' && (
+                  <div className="form-group">
+                    <label>Specialization</label>
+                    <select value={specialization} onChange={(e) => setSpecialization(e.target.value)} style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontFamily: 'inherit', background: 'var(--color-bg-main)', color: 'var(--color-text-main)' }}>
+                      <option value="Orthodontics">Orthodontics</option>
+                      <option value="Prosthodontics">Prosthodontics</option>
+                      <option value="Periodontics">Periodontics</option>
+                      <option value="Endodontics">Endodontics</option>
+                      <option value="Implantology">Implantology</option>
+                      <option value="Pediatric">Pediatric</option>
+                    </select>
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label>Address</label>
